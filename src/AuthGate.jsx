@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import App from "./App.jsx";
 import { auth } from "./firebase";
-
 import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -10,474 +9,142 @@ import {
   GoogleAuthProvider,
   signInWithCredential
 } from "firebase/auth";
-
 import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 
-export default function AuthGate() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [method, setMethod] = useState("email");
-  const [signup, setSignup] = useState(false);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+const styles = `
+*{box-sizing:border-box}
+body{margin:0;background:#0c0912;color:white;font-family:Arial,sans-serif}
+.auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:22px;background:radial-gradient(ellipse at top,#49304b,#171020 55%,#0c0912)}
+.card{width:100%;max-width:400px;padding:28px 23px;border:1px solid #57415e;border-radius:23px;background:linear-gradient(145deg,#281d30,#17121f);box-shadow:0 20px 60px #0008}
+.logo{width:66px;height:66px;margin:auto;display:grid;place-items:center;border-radius:21px;background:linear-gradient(135deg,#f3dba8,#a97842);color:#24160b;font-size:35px;font-weight:900}
+.brand{text-align:center;font-size:27px;letter-spacing:4px;margin:15px 0 5px;color:#f1d39a;font-weight:900}
+.tag{text-align:center;color:#b8a8bf;font-size:11px;margin-bottom:30px}
+h2{text-align:center;font-size:21px;margin-bottom:20px}
+.field{width:100%;padding:14px;margin:7px 0;border:1px solid #55435c;border-radius:11px;background:#120e19;color:white;outline:none;font-size:13px}
+.field:focus{border-color:#e4c58d}
+.primary,.google{width:100%;height:48px;margin-top:12px;border:0;border-radius:12px;font-weight:800;font-size:13px}
+.primary{background:linear-gradient(120deg,#f1d9a5,#b88648);color:#21150c}
+.google{background:#fff;color:#25212a}
+.google:disabled,.primary:disabled{opacity:.6}
+.divider{display:flex;align-items:center;gap:10px;color:#9d91a5;font-size:10px;margin:17px 0}
+.divider:before,.divider:after{content:"";height:1px;background:#514157;flex:1}
+.switch{text-align:center;color:#b8a8bf;font-size:12px;margin-top:23px}
+.switch button{border:0;background:none;color:#f0cf91;font-weight:800}
+.error{padding:10px;border-radius:9px;background:#542b36;color:#ffd0d5;font-size:11px;overflow-wrap:anywhere}
+.note{text-align:center;color:#93879b;font-size:9px;line-height:1.5;margin-top:18px}
+`;
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+export default function AuthGate() {
+  const [user,setUser] = useState(null);
+  const [loading,setLoading] = useState(true);
+  const [signup,setSignup] = useState(false);
+  const [name,setName] = useState("");
+  const [email,setEmail] = useState("");
+  const [password,setPassword] = useState("");
+  const [busy,setBusy] = useState(false);
+  const [error,setError] = useState("");
+
+  useEffect(()=>{
+    return onAuthStateChanged(auth,currentUser=>{
       setUser(currentUser);
       setLoading(false);
     });
+  },[]);
 
-    return unsubscribe;
-  }, []);
-
-  async function handleEmail(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    setMessage("");
     setBusy(true);
 
     try {
-      if (signup) {
-        const result = await createUserWithEmailAndPassword(
-          auth,
-          email.trim(),
-          password
+      if(signup) {
+        const result=await createUserWithEmailAndPassword(
+          auth,email.trim(),password
         );
-
-        await updateProfile(result.user, {
-          displayName: name.trim()
+        await updateProfile(result.user,{
+          displayName:name.trim()
         });
       } else {
         await signInWithEmailAndPassword(
-          auth,
-          email.trim(),
-          password
+          auth,email.trim(),password
         );
       }
-    } catch (err) {
+    } catch(err) {
       setError(
-        err.code === "auth/email-already-in-use"
-          ? "This email is already registered."
-          : err.code === "auth/invalid-email"
-          ? "Enter a valid email address."
-          : err.code === "auth/weak-password"
-          ? "Password must be at least 6 characters."
-          : err.code === "auth/invalid-credential"
-          ? "Email or password is incorrect."
-          : err.message || "Something went wrong."
+        err.code==="auth/email-already-in-use"?"This email is already registered.":
+        err.code==="auth/invalid-email"?"Enter a valid email address.":
+        err.code==="auth/weak-password"?"Password must be at least 6 characters.":
+        err.code==="auth/invalid-credential"?"Email or password is incorrect.":
+        err.message
       );
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleGoogle() {
+  async function googleLogin() {
     setError("");
-    setMessage("");
     setBusy(true);
-
     try {
-      const result = await FirebaseAuthentication.signInWithGoogle();
-
-      const idToken = result?.credential?.idToken;
-
-      if (!idToken) {
-        throw new Error(
-          "Google ID token was not received. Check Firebase Android configuration."
-        );
+      const result=await FirebaseAuthentication.signInWithGoogle();
+      const idToken=result.credential?.idToken;
+      if(!idToken) {
+        throw new Error("Google ID token missing. Check Firebase OAuth configuration.");
       }
-
-      const credential = GoogleAuthProvider.credential(idToken);
-
-      await signInWithCredential(auth, credential);
-
-    } catch (err) {
-      console.error("ELVORA Google Login Error:", err);
-
-      setError(
-        err.code === "auth/account-exists-with-different-credential"
-          ? "This email is already registered with another login method."
-          : err.code === "auth/popup-closed-by-user"
-          ? "Google sign-in was cancelled."
-          : err.message || "Google sign-in failed. Please try again."
-      );
+      const credential=GoogleAuthProvider.credential(idToken);
+      await signInWithCredential(auth,credential);
+    } catch(err) {
+      setError(err.message || "Google sign-in failed.");
     } finally {
       setBusy(false);
     }
   }
 
-  function handlePhone() {
-    setError("");
-    setMessage(
-      "Phone OTP is not connected yet. Please use Google or Email for now."
-    );
+  if(loading) {
+    return <div className="auth"><div className="card" style={{textAlign:"center"}}><div className="logo">E</div><h2>ELVORA</h2><p>Loading your account...</p></div></div>;
   }
 
-  if (loading) {
-    return (
-      <div style={styles.loading}>
-        <h2>ELVORA</h2>
-        <p>Loading...</p>
-      </div>
-    );
-  }
-
-  if (user) {
-    return <App />;
-  }
+  if(user) return <App/>;
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <div style={styles.logo}>E</div>
+    <>
+      <style>{styles}</style>
+      <main className="auth">
+        <section className="card">
+          <div className="logo">E</div>
+          <div className="brand">ELVORA</div>
+          <div className="tag">YOUR VOICE. YOUR COMMUNITY.</div>
 
-        <h1 style={styles.title}>ELVORA</h1>
+          <h2>{signup?"Create your account":"Welcome back"}</h2>
 
-        <p style={styles.subtitle}>
-          Your voice. Your community.
-        </p>
-
-        <h2 style={styles.heading}>
-          Welcome to ELVORA
-        </h2>
-
-        <p style={styles.description}>
-          Choose how you want to continue
-        </p>
-
-        <button
-          type="button"
-          style={styles.googleButton}
-          onClick={handleGoogle}
-          disabled={busy}
-        >
-          <span style={styles.googleIcon}>G</span>
-          {busy ? "Please wait..." : "Continue with Google"}
-        </button>
-
-        <button
-          type="button"
-          style={styles.optionButton}
-          onClick={() => {
-            setMethod("email");
-            setError("");
-            setMessage("");
-          }}
-        >
-          ✉ Continue with Email
-        </button>
-
-        <button
-          type="button"
-          style={styles.optionButton}
-          onClick={() => {
-            setMethod("phone");
-            setError("");
-            setMessage("");
-          }}
-        >
-          ☎ Continue with Phone
-        </button>
-
-        {method === "email" && (
-          <>
-            <h3 style={styles.sectionTitle}>
-              {signup ? "Create Account" : "Email Login"}
-            </h3>
-
-            <form onSubmit={handleEmail}>
-              {signup && (
-                <input
-                  style={styles.input}
-                  placeholder="Your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              )}
-
-              <input
-                style={styles.input}
-                type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-
-              <input
-                style={styles.input}
-                type="password"
-                placeholder="Password (minimum 6 characters)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
-                required
-              />
-
-              <button
-                style={styles.mainButton}
-                type="submit"
-                disabled={busy}
-              >
-                {busy
-                  ? "Please wait..."
-                  : signup
-                  ? "Create Account"
-                  : "Login with Email"}
-              </button>
-            </form>
-
-            <p style={styles.switchText}>
-              {signup
-                ? "Already have an account?"
-                : "New to ELVORA?"}
-
-              <button
-                type="button"
-                style={styles.switchButton}
-                onClick={() => {
-                  setSignup(!signup);
-                  setError("");
-                  setMessage("");
-                }}
-              >
-                {signup ? " Login" : " Sign Up"}
-              </button>
-            </p>
-          </>
-        )}
-
-        {method === "phone" && (
-          <>
-            <h3 style={styles.sectionTitle}>
-              Phone Verification
-            </h3>
-
-            <input
-              style={styles.input}
-              type="tel"
-              placeholder="+91 Mobile number"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-
-            <button
-              type="button"
-              style={styles.mainButton}
-              onClick={handlePhone}
-              disabled={busy}
-            >
-              Send OTP
+          <form onSubmit={handleSubmit}>
+            {signup&&<input className="field" placeholder="Your name" value={name} onChange={e=>setName(e.target.value)} required/>}
+            <input className="field" type="email" placeholder="Email address" value={email} onChange={e=>setEmail(e.target.value)} required/>
+            <input className="field" type="password" placeholder="Password (minimum 6 characters)" value={password} onChange={e=>setPassword(e.target.value)} minLength={6} required/>
+            {error&&<p className="error">{error}</p>}
+            <button className="primary" type="submit" disabled={busy}>
+              {busy?"Please wait...":signup?"Create Account":"Login"}
             </button>
+          </form>
 
-            <input
-              style={styles.input}
-              placeholder="Enter OTP"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              inputMode="numeric"
-            />
+          <div className="divider">OR CONTINUE WITH</div>
+          <button className="google" onClick={googleLogin} disabled={busy}>
+            G  Continue with Google
+          </button>
 
-            <button
-              type="button"
-              style={styles.mainButton}
-              onClick={handlePhone}
-              disabled={busy}
-            >
-              Verify OTP
-            </button>
-          </>
-        )}
+          <div className="switch">
+            {signup?"Already have an account?":"New to ELVORA?"}
+            <button onClick={()=>{
+              setSignup(v=>!v);
+              setError("");
+            }}>{signup?" Login":" Sign Up"}</button>
+          </div>
 
-        {error && (
-          <p style={styles.error}>
-            {error}
+          <p className="note">
+            By continuing, you agree to use ELVORA respectfully and follow community safety rules.
           </p>
-        )}
-
-        {message && (
-          <p style={styles.message}>
-            {message}
-          </p>
-        )}
-
-        <p style={styles.footer}>
-          By continuing, you agree to ELVORA's Terms and Privacy Policy.
-        </p>
-      </div>
-    </div>
+        </section>
+      </main>
+    </>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "linear-gradient(145deg, #090817, #17102d, #090817)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "22px",
-    boxSizing: "border-box",
-    color: "white",
-    fontFamily: "Arial, sans-serif"
-  },
-
-  card: {
-    width: "100%",
-    maxWidth: "390px",
-    background: "rgba(30, 24, 53, 0.95)",
-    border: "1px solid #49366d",
-    borderRadius: "22px",
-    padding: "28px 22px",
-    boxSizing: "border-box",
-    textAlign: "center"
-  },
-
-  logo: {
-    width: "62px",
-    height: "62px",
-    borderRadius: "20px",
-    background: "linear-gradient(135deg, #a855f7, #6d28d9)",
-    display: "grid",
-    placeItems: "center",
-    margin: "0 auto",
-    fontSize: "34px",
-    fontWeight: "bold"
-  },
-
-  title: {
-    fontSize: "30px",
-    letterSpacing: "5px",
-    margin: "15px 0 5px"
-  },
-
-  subtitle: {
-    color: "#b8a9d5",
-    fontSize: "13px",
-    marginBottom: "25px"
-  },
-
-  heading: {
-    fontSize: "22px",
-    marginBottom: "5px"
-  },
-
-  description: {
-    color: "#b8a9d5",
-    fontSize: "13px",
-    marginBottom: "20px"
-  },
-
-  sectionTitle: {
-    fontSize: "17px",
-    marginTop: "25px"
-  },
-
-  input: {
-    width: "100%",
-    padding: "15px",
-    marginBottom: "14px",
-    borderRadius: "12px",
-    border: "1px solid #554477",
-    background: "#171329",
-    color: "white",
-    fontSize: "15px",
-    boxSizing: "border-box",
-    outline: "none"
-  },
-
-  googleButton: {
-    width: "100%",
-    padding: "14px",
-    marginBottom: "12px",
-    border: "1px solid #71618c",
-    borderRadius: "12px",
-    background: "#ffffff",
-    color: "#252033",
-    fontSize: "15px",
-    fontWeight: "bold",
-    cursor: "pointer"
-  },
-
-  googleIcon: {
-    fontWeight: "bold",
-    color: "#4285F4",
-    marginRight: "12px"
-  },
-
-  optionButton: {
-    width: "100%",
-    padding: "14px",
-    marginBottom: "12px",
-    border: "1px solid #71549b",
-    borderRadius: "12px",
-    background: "#251b3d",
-    color: "white",
-    fontSize: "15px",
-    fontWeight: "bold",
-    cursor: "pointer"
-  },
-
-  mainButton: {
-    width: "100%",
-    padding: "15px",
-    marginTop: "8px",
-    border: "none",
-    borderRadius: "12px",
-    background: "linear-gradient(90deg, #9333ea, #6d28d9)",
-    color: "white",
-    fontSize: "16px",
-    fontWeight: "bold",
-    cursor: "pointer"
-  },
-
-  switchText: {
-    color: "#b8a9d5",
-    fontSize: "14px",
-    marginTop: "20px"
-  },
-
-  switchButton: {
-    background: "none",
-    border: "none",
-    color: "#c084fc",
-    fontWeight: "bold",
-    fontSize: "14px",
-    cursor: "pointer"
-  },
-
-  error: {
-    color: "#ff8585",
-    fontSize: "13px",
-    marginTop: "15px"
-  },
-
-  message: {
-    color: "#ffd27d",
-    fontSize: "13px",
-    marginTop: "15px"
-  },
-
-  footer: {
-    color: "#8f83a8",
-    fontSize: "11px",
-    marginTop: "25px",
-    lineHeight: 1.5
-  },
-
-  loading: {
-    minHeight: "100vh",
-    background: "#090817",
-    color: "white",
-    display: "grid",
-    placeContent: "center",
-    textAlign: "center"
-  }
-};
