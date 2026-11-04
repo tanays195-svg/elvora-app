@@ -1,32 +1,48 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
-  font-family: 'DM Sans', Arial, sans-serif;
-  color: #ffffff;
-  background: #0c0912;
+  font-family: 'DM Sans', sans-serif;
+  color: #fff4dc;
+  background: #100800;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   color-scheme: dark;
+
+  --gold: #f6d58b;
+  --gold-light: #fff0bd;
+  --gold-dark: #956022;
+  --gold-border: #b9853d;
+  --brown: #281307;
+  --brown-light: #48220d;
+  --panel: rgba(43, 20, 8, .94);
+  --red: #4b0715;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html {
-  min-width: 320px;
+html,
+body,
+#root {
+  width: 100%;
   min-height: 100%;
-  background: #0c0912;
+  margin: 0;
+}
+
+html {
+  background: #100800;
   overscroll-behavior-y: contain;
 }
 
 body {
-  margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #0c0912;
+  background:
+    radial-gradient(ellipse at 50% 0%, #65370e 0%, transparent 48%),
+    linear-gradient(145deg, #1c0b03, #090502 75%);
+  font-family: 'DM Sans', sans-serif;
 }
 
 button,
@@ -41,17 +57,11 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
-input,
-textarea,
-select {
-  color-scheme: dark;
-}
-
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid #e8bd70;
+  outline: 2px solid var(--gold-light);
   outline-offset: 3px;
 }
 
@@ -59,12 +69,407 @@ img {
   max-width: 100%;
 }
 
-#root {
-  min-height: 100vh;
+/* Main application */
+
+.app {
+  position: relative;
+  isolation: isolate;
   width: 100%;
+  max-width: 620px;
+  min-height: 100dvh;
+  margin: auto;
+  padding-bottom: 90px !important;
+  overflow-x: hidden !important;
+  color: #fff4dc !important;
+  background:
+    radial-gradient(ellipse at 50% 5%, rgba(133, 78, 24, .35), transparent 43%),
+    linear-gradient(180deg, #291204 0%, #160a03 48%, #090502 100%) !important;
+}
+
+.app::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0,
+      transparent 35px,
+      rgba(255, 207, 111, .018) 36px,
+      transparent 38px
+    );
+}
+
+/* Gold header */
+
+.top {
+  height: 66px !important;
+  padding: 0 15px !important;
+  background: linear-gradient(180deg, #321605f5, #180a03f5) !important;
+  border-bottom: 1px solid #a87532 !important;
+  box-shadow: 0 3px 18px #0009, inset 0 -1px #f5d18a33;
+}
+
+.brand {
+  font-family: 'Cinzel', serif !important;
+  font-size: 21px !important;
+  letter-spacing: 2px !important;
+  color: #ffe3a0 !important;
+  text-shadow: 0 1px 8px #e9a73c88;
+}
+
+.brand small {
+  color: #c6a16c !important;
+}
+
+.heading {
+  font-family: 'Cinzel', serif !important;
+  color: #ffe5aa !important;
+  text-shadow: 0 2px 10px #bd792d55;
+}
+
+.sub {
+  color: #c6aa82 !important;
+}
+
+/* Ornate gold panels */
+
+.panel,
+.roomcard {
+  position: relative;
+  border: 1px solid #a97738 !important;
+  border-radius: 16px !important;
+  background:
+    linear-gradient(145deg, rgba(91, 43, 13, .94), rgba(32, 14, 5, .97)) !important;
+  box-shadow:
+    inset 0 1px 0 #ffe6a855,
+    inset 0 -1px 0 #6e3d19,
+    0 5px 15px #0008 !important;
+}
+
+.panel::after,
+.roomcard::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(230, 181, 99, .19);
+  border-radius: 11px;
+  pointer-events: none;
+}
+
+.btn {
+  color: #291303 !important;
+  border: 1px solid #fff0b4 !important;
+  border-radius: 25px !important;
+  background: linear-gradient(110deg, #fff0b4, #e8b65b 48%, #a96a27) !important;
+  box-shadow:
+    inset 0 1px 2px #fff9,
+    0 3px 12px #bd812e55 !important;
+  font-weight: 800 !important;
+}
+
+.secondary,
+.round {
+  color: #ffe3a4 !important;
+  border: 1px solid #bd8a48 !important;
+  background: linear-gradient(145deg, #4a260e, #1c0d04) !important;
+  box-shadow: inset 0 1px 0 #ffe1a044, 0 2px 8px #0008;
+}
+
+.input {
+  color: #fff2d8 !important;
+  border: 1px solid #9a6a36 !important;
+  border-radius: 11px !important;
+  background: #170b04 !important;
+}
+
+.input::placeholder {
+  color: #a88b69;
+}
+
+/* Profile photos */
+
+.avatar {
+  border: 2px solid #f1ca79 !important;
+  background: linear-gradient(145deg, #f9dfa0, #814719) !important;
+  box-shadow: 0 0 12px #d99b3e44;
+}
+
+/* Room discovery */
+
+.search {
+  border: 1px solid #98652d !important;
+  background: #1d0e05 !important;
+  box-shadow: inset 0 1px 5px #0008;
+}
+
+.filters button {
+  border: 1px solid #8d612f !important;
+  background: #281306 !important;
+  color: #e9d1a7 !important;
+}
+
+.filters button.selected {
+  color: #2b1404 !important;
+  border-color: #ffe3a1 !important;
+  background: linear-gradient(110deg, #ffe9ad, #c58b3d) !important;
+}
+
+.roomcover {
+  border: 1px solid #b17a37;
+  background:
+    radial-gradient(circle at 50% 40%, #9b652b, transparent 48%),
+    linear-gradient(140deg, #562a0b, #1b0b03);
+  box-shadow: inset 0 0 20px #0008;
+}
+
+.pill {
+  color: #ffe2a0 !important;
+  border: 1px solid #9e6b32;
+  background: #4b250d !important;
+}
+
+/* Statistics */
+
+.stat {
+  border: 1px solid #94652f !important;
+  border-radius: 12px !important;
+  background: linear-gradient(145deg, #51270e, #1e0d04) !important;
+  box-shadow: inset 0 1px 0 #f8d78b33;
+}
+
+.stat b {
+  color: #ffdf91 !important;
+}
+
+/* Bottom navigation */
+
+.nav,
+.bottom-action {
+  border-top: 1px solid #b0803d !important;
+  background:
+    linear-gradient(180deg, #48230c, #1a0b03) !important;
+  box-shadow:
+    0 -5px 20px #0009,
+    inset 0 1px 0 #ffe2a044 !important;
+}
+
+.nav button {
+  color: #b99b70 !important;
+}
+
+.nav button.active {
+  color: #ffe18c !important;
+  text-shadow: 0 0 10px #e9b64b88;
+}
+
+.bottom-action button {
+  color: #f6dca8 !important;
+}
+
+.bottom-action .mainmic {
+  color: #291303 !important;
+  border: 2px solid #fff0b2 !important;
+  background: linear-gradient(145deg, #fff0b5, #bd8035) !important;
+  box-shadow: 0 0 14px #eab65377;
+}
+
+/* Live room */
+
+.roompage {
+  position: relative;
+  min-height: calc(100dvh - 66px) !important;
+  padding: 13px 12px 105px !important;
+  background:
+    radial-gradient(ellipse at 50% 20%, #63380f, transparent 60%),
+    linear-gradient(180deg, #2a1205, #120802 80%) !important;
+  background-size: cover !important;
+  background-position: center !important;
+}
+
+.roomhead {
+  margin-bottom: 15px !important;
+}
+
+.roomidentity {
+  padding: 10px;
+  border: 1px solid #9e713c;
+  border-radius: 14px;
+  background: linear-gradient(130deg, #54290e, #1b0c04);
+  box-shadow: inset 0 1px 0 #ffe5a044;
+}
+
+.roomname {
+  color: #ffe4a5 !important;
+  font-family: 'Cinzel', serif;
+}
+
+.roomid {
+  color: #d0ae79 !important;
+}
+
+.roominfo {
+  border: 1px solid #9c6a32 !important;
+  background: linear-gradient(110deg, #4a240c, #1c0c04) !important;
+  color: #f6dba6 !important;
+}
+
+.welcome {
+  border: 1px solid #805020;
+  background: #1b0b03d9 !important;
+  color: #ffd36f !important;
+  font-size: 12px !important;
+  line-height: 1.6;
+}
+
+.seats {
+  border: 1px solid #a8783b !important;
+  border-radius: 17px !important;
+  background:
+    radial-gradient(ellipse at 50% 0%, #71400f66, transparent 65%),
+    linear-gradient(145deg, #341907, #150902) !important;
+  box-shadow:
+    inset 0 0 25px #0008,
+    0 4px 15px #0008;
+}
+
+.seatcircle {
+  border: 2px solid #e8bd70 !important;
+  background:
+    radial-gradient(circle, #70400e, #241004) !important;
+  box-shadow:
+    inset 0 0 9px #e9bd7044,
+    0 0 8px #d99a3e33;
+}
+
+.seat small {
+  color: #f2d9ad !important;
+}
+
+.seat em {
+  color: #ffe08c !important;
+}
+
+/* Chat preview and chat sheet */
+
+.chatpreview {
+  border: 1px solid #a1743d !important;
+  background: linear-gradient(145deg, #3b1b08, #170a03) !important;
+}
+
+.chatline {
+  color: #f0d9b4 !important;
+}
+
+.chatline b {
+  color: #ffdb88 !important;
+}
+
+.overlay {
+  background: #080300d9 !important;
+  backdrop-filter: blur(5px);
+}
+
+.sheet {
+  border: 1px solid #c08a43 !important;
+  border-radius: 22px 22px 0 0 !important;
+  background:
+    linear-gradient(145deg, #4a240d, #1b0b03 70%) !important;
+  box-shadow: 0 -8px 35px #000b;
+}
+
+.sheethead {
+  color: #ffe4a6 !important;
+  font-family: 'Cinzel', serif;
+}
+
+.chatbox {
+  border: 1px solid #8d602f !important;
+  background: #120802 !important;
+}
+
+.msg {
+  border: 1px solid #694018;
+  background: linear-gradient(120deg, #51270e, #291104) !important;
+  color: #fff0d4 !important;
+}
+
+/* Profile and settings details */
+
+.menuitem {
+  border: 1px solid #986a35 !important;
+  border-radius: 12px !important;
+  background: linear-gradient(110deg, #48220b, #1c0b03) !important;
+  color: #ffedcc !important;
+  box-shadow: inset 0 1px 0 #ffe5a033;
+}
+
+.toast {
+  color: #fff1d2 !important;
+  border: 1px solid #f0c477 !important;
+  background: linear-gradient(120deg, #63360f, #2b1205) !important;
+  box-shadow: 0 5px 20px #000b;
+}
+
+/* Scrollbars */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #98672e #1a0c04;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background: #a87939;
+}
+
+*::-webkit-scrollbar-track {
+  background: #1a0c04;
+}
+
+/* Small phone support */
+
+@media (max-width: 370px) {
+  .page {
+    padding-left: 11px !important;
+    padding-right: 11px !important;
+  }
+
+  .seats {
+    gap: 14px 1px !important;
+    padding: 13px 3px !important;
+  }
+
+  .seatcircle {
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  .bottom-action button {
+    font-size: 7px !important;
+  }
+
+  .roomname {
+    font-size: 12px !important;
+  }
+}
+
+@media (min-width: 621px) {
+  .app {
+    border-left: 1px solid #795126;
+    border-right: 1px solid #795126;
+    box-shadow: 0 0 50px #000b;
+  }
 }
 
 ::selection {
-  background: #e8bd70;
-  color: #21150c;
+  color: #241204;
+  background: #f2d18b;
 }
