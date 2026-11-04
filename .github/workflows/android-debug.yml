@@ -31,29 +31,25 @@ jobs:
       - name: Build web app
         run: npm run build
 
-      - name: Prepare Firebase config
+      - name: Backup Firebase config
         run: |
           mkdir -p "$RUNNER_TEMP/elvora-config"
           cp android/app/google-services.json "$RUNNER_TEMP/elvora-config/google-services.json"
-          rm -rf android
 
-      - name: Create Android platform
+      - name: Recreate Android project
         run: |
+          rm -rf android
           CORE_VERSION=$(node -p "require('./node_modules/@capacitor/core/package.json').version")
           npm install "@capacitor/android@$CORE_VERSION"
           npx cap add android
 
-      - name: Configure Native Google Authentication
+      - name: Configure Google authentication
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
 
           path = Path("android/variables.gradle")
-
-          if not path.exists():
-              raise SystemExit("variables.gradle not found")
-
           content = path.read_text()
 
           settings = """
@@ -63,19 +59,12 @@ jobs:
 
           if "rgcfaIncludeGoogle" not in content:
               match = re.search(r"ext\s*\{", content)
-
               if not match:
-                  raise SystemExit("Could not find ext block")
-
-              content = (
-                  content[:match.end()]
-                  + settings
-                  + content[match.end():]
-              )
-
+                  raise SystemExit("Gradle ext block not found")
+              content = content[:match.end()] + settings + content[match.end():]
               path.write_text(content)
 
-          print("Native Google authentication configured")
+          print("Google authentication settings added")
           PY
 
       - name: Restore Firebase config
@@ -93,9 +82,6 @@ jobs:
           root = Path("android/build.gradle")
           app = Path("android/app/build.gradle")
 
-          if not root.exists() or not app.exists():
-              raise SystemExit("Android Gradle files were not generated")
-
           content = root.read_text()
 
           if "com.google.gms:google-services" not in content:
@@ -106,44 +92,25 @@ jobs:
                   content,
                   count=1
               )
-
               if count == 0:
-                  raise SystemExit("Could not locate root Gradle dependencies block")
-
+                  raise SystemExit("Root Gradle dependencies block not found")
               root.write_text(updated)
 
           app_content = app.read_text()
 
           if "com.google.gms.google-services" not in app_content:
               app.write_text(
-                  app_content
-                  + "\napply plugin: 'com.google.gms.google-services'\n"
+                  app_content + "\napply plugin: 'com.google.gms.google-services'\n"
               )
 
           print("Firebase Gradle plugin configured")
           PY
 
-      - name: Build debug APK
+      - name: Build Android APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
-
-      - name: Generate SHA-1 fingerprint
-        run: |
-          cd android
-          ./gradlew signingReport | tee signing-report.txt
-
-          SHA1=$(awk '/Variant: debug/{flag=1} flag && /SHA1:/{print $2; exit}' signing-report.txt)
-
-          if [ -z "$SHA1" ]; then
-            echo "SHA-1 fingerprint not found"
-            exit 1
-          fi
-
-          echo "### ELVORA Android Debug SHA-1" >> "$GITHUB_STEP_SUMMARY"
-          echo "\`$SHA1\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "SHA-1 generated successfully"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
