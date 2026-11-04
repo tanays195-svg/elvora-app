@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   collection, doc, addDoc, setDoc, updateDoc, onSnapshot,
   query, orderBy, serverTimestamp, runTransaction, limit
@@ -9,134 +9,127 @@ import {
   Home, Compass, MessageCircle, UserRound, Users, Mic,
   MicOff, Plus, Settings, Wallet, Crown, Gift, Trophy,
   Heart, ChevronRight, ArrowLeft, Send, Globe, Bell,
-  Shield, Volume2, VolumeX, Smile, Star, LogOut, X,
-  UserPlus, Camera, Coins, Handshake, Share2, MoreHorizontal,
-  Lock, Image, Edit3, Headphones
+  Volume2, VolumeX, Smile, Star, LogOut, X,
+  Search, Share2, MoreHorizontal, Lock, Headphones,
+  Radio, ShieldCheck, Sparkles, UserPlus
 } from "lucide-react";
 
-const gold = "#e8bd70";
+const GOLD = "#e8bd70";
 
 const css = `
 *{box-sizing:border-box}
-body{margin:0;background:#100a13;font-family:Arial,sans-serif;color:#fff}
+body{margin:0;background:#0c0912;color:#fff;font-family:DM Sans,Arial,sans-serif}
 button,input,textarea,select{font:inherit}
 button{cursor:pointer}
-.app{min-height:100vh;max-width:620px;margin:auto;background:radial-gradient(ellipse at top,#48230e,#1c0d0b 42%,#100a13);position:relative;padding-bottom:85px;overflow-x:hidden}
-.top{height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid #8e6335;background:linear-gradient(90deg,#21100b,#593015,#21100b);position:sticky;top:0;z-index:15}
-.brand{font-size:21px;font-weight:900;letter-spacing:2px;color:#ffdc9b}
-.page{padding:14px}
-.heading{font-size:21px;font-weight:800;color:#ffdfaa;margin:8px 0 15px}
-.sub{color:#b9a28a;font-size:12px}
-.panel{background:linear-gradient(145deg,#4b2815,#1c0e0a 70%);border:1px solid #b9874b;border-radius:16px;padding:14px;margin-bottom:12px}
-.btn{border:1px solid #e6bd75;border-radius:25px;padding:11px 16px;background:linear-gradient(100deg,#f4d38c,#986024);color:#271307;font-weight:800}
-.darkbtn,.smallbtn{background:#24140d;color:#f3d29a;border:1px solid #9a7045;border-radius:20px;padding:8px 11px}
+.app{max-width:620px;min-height:100vh;margin:auto;background:radial-gradient(ellipse at 50% -10%,#392347,#120e19 48%,#0c0912);padding-bottom:85px;overflow:hidden}
+.top{height:68px;position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:0 17px;background:#120e19ed;border-bottom:1px solid #35283e;backdrop-filter:blur(16px)}
+.brand{font-size:21px;font-weight:900;letter-spacing:3px;color:#f1d39a}
+.brand small{display:block;font-size:8px;letter-spacing:2px;color:#a99ab8;font-weight:500}
+.page{padding:17px 15px 28px}
+.heading{font-size:23px;font-weight:800;margin:7px 0;color:#f5e7d2}
+.sub{font-size:11px;color:#a99caf}
 .row{display:flex;align-items:center;gap:10px}
-.between{display:flex;align-items:center;justify-content:space-between;gap:9px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.input{width:100%;padding:12px;border:1px solid #9a7045;border-radius:11px;background:#170d0b;color:white;margin:7px 0;outline:none}
-.avatar{width:45px;height:45px;border-radius:50%;background:linear-gradient(140deg,#f3d18b,#6f3c18);border:2px solid #e8bd70;display:grid;place-items:center;color:#271408;font-weight:bold;flex-shrink:0;overflow:hidden}
+.between{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.panel{padding:15px;border:1px solid #3b2e45;border-radius:17px;background:linear-gradient(145deg,#241a2d,#17121e);margin:12px 0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 16px;border:0;border-radius:12px;background:linear-gradient(120deg,#f1d9a5,#b88648);color:#21150c;font-weight:800;font-size:12px}
+.secondary{padding:10px 13px;border:1px solid #59445f;border-radius:11px;background:#211929;color:#ead9f1;font-size:11px}
+.input{width:100%;padding:13px;border:1px solid #49394f;border-radius:11px;background:#120e19;color:white;margin:7px 0;outline:none}
+.input:focus{border-color:#d4b17a}
+.avatar{width:44px;height:44px;flex-shrink:0;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:linear-gradient(135deg,#f1d69c,#76502e);border:2px solid #d6ae70;color:#21150c;font-weight:900}
 .avatar img{width:100%;height:100%;object-fit:cover}
-.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(620px,100%);height:72px;background:linear-gradient(90deg,#160c09,#4a2815,#160c09);border-top:1px solid #c18c4c;display:flex;justify-content:space-around;align-items:center;z-index:20}
-.nav button{border:0;background:none;color:#bda078;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px}
-.nav button.active{color:#ffda87}
+.nav{position:fixed;z-index:20;bottom:0;left:50%;transform:translateX(-50%);width:min(620px,100%);height:73px;padding-bottom:env(safe-area-inset-bottom);display:flex;align-items:center;justify-content:space-around;background:#17111ff5;border-top:1px solid #49364e;backdrop-filter:blur(16px)}
+.nav button{border:0;background:none;color:#95869d;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:9px;min-width:55px}
+.nav button.active{color:#f0cf91}
 .nav svg{width:21px;height:21px}
-.roomcard{border:1px solid #9d713e;border-radius:14px;padding:12px;background:linear-gradient(120deg,#492713,#1c100b);margin:10px 0}
-.stat{background:#25130d;border:1px solid #8c6337;border-radius:12px;padding:12px;text-align:center}
-.stat b{display:block;color:#ffdb91;font-size:20px}
-.badge{font-size:9px;background:#9d5d19;color:#ffe3a9;border-radius:10px;padding:4px 7px}
-.room-screen{position:relative;min-height:calc(100vh - 136px);padding:10px 12px 90px;background-size:cover;background-position:center}
-.room-screen:before{content:"";position:absolute;inset:0;background:#100a13d9;pointer-events:none}
-.room-screen>*{position:relative}
-.room-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.room-toolbar button{width:36px;height:36px;border-radius:50%;background:#21150edc;border:1px solid #9a7045;color:#ffdfaa;display:grid;place-items:center}
-.room-identity{display:flex;align-items:center;gap:10px;min-width:0}
-.room-identity .avatar{width:47px;height:47px}
-.room-title{font-size:15px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.room-id{font-size:10px;color:#d1b58c;margin-top:4px}
-.room-info{display:flex;justify-content:space-between;align-items:center;margin:10px 0;padding:8px 10px;background:#24150dc9;border:1px solid #8e6335;border-radius:10px}
-.welcome{padding:9px 11px;border-radius:10px;background:#633e20c9;color:#ffe1a8;font-size:11px;margin:10px 0}
-.stage-title{display:flex;justify-content:space-between;align-items:center;margin:14px 2px 10px}
-.stage-title b{color:#ffdfaa;font-size:14px}
-.seats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px 3px;padding:13px 5px;background:#24150dbd;border:1px solid #9b713d;border-radius:15px}
-.seat{display:flex;align-items:center;flex-direction:column;gap:5px;min-width:0}
-.seat-circle{width:49px;height:49px;border-radius:50%;border:2px solid #d7a85c;background:radial-gradient(circle,#75431e,#160d09);display:grid;place-items:center;color:#f4d18d;position:relative}
-.seat-circle .avatar{width:45px;height:45px}
-.seat small{color:#e5d1b8;font-size:9px;overflow:hidden;max-width:65px;text-overflow:ellipsis;white-space:nowrap}
-.seat .badge{font-size:8px}
-.listeners{display:flex;align-items:center;gap:8px;color:#d1b58c;font-size:10px;padding:12px 2px}
-.room-chat-preview{height:85px;overflow:hidden;background:#160c0bcc;border:1px solid #8a6338;border-radius:11px;padding:8px;margin:8px 0}
-.chat-line{font-size:10px;color:#e7d7c1;margin:5px 0;overflow-wrap:anywhere}
-.chat-line b{color:#f2cb83;margin-right:5px}
-.room-dock{position:fixed;z-index:25;bottom:0;left:50%;transform:translateX(-50%);width:min(620px,100%);height:76px;background:linear-gradient(90deg,#160c09,#4a2815,#160c09);border-top:1px solid #c18c4c;display:grid;grid-template-columns:repeat(7,1fr);align-items:center;padding:4px 3px}
-.room-dock button{border:0;background:none;color:#f0d5a2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:0}
-.room-dock button small{font-size:8px}
-.room-dock button svg{width:21px;height:21px}
-.room-dock .mic-main{width:48px;height:48px;margin:auto;border-radius:50%;background:linear-gradient(130deg,#f5d994,#a56c2a);color:#241307;border:2px solid #ffe4a6}
-.chatbox{max-height:55vh;overflow:auto;background:#160c0b;border:1px solid #8a6338;border-radius:12px;padding:10px}
-.msg{padding:8px 10px;margin:7px 0;background:#432516;border-radius:10px;max-width:90%;overflow-wrap:anywhere;font-size:12px}
-.footerInput{display:flex;gap:7px;margin-top:8px}
-.footerInput input{flex:1;min-width:0}
-.overlay{position:fixed;inset:0;z-index:40;background:#000b;display:flex;align-items:flex-end;justify-content:center}
-.sheet{width:min(620px,100%);max-height:80vh;overflow:auto;background:#21130d;border:1px solid #b9874b;border-radius:20px 20px 0 0;padding:17px}
-.sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.sheet-head b{color:#ffdfaa;font-size:17px}
-.toast{position:fixed;z-index:60;top:75px;left:50%;transform:translateX(-50%);background:#4b2815;border:1px solid #d3a15a;border-radius:10px;padding:10px 14px;color:#fff0d1;font-size:12px;max-width:90%}
-.menuitem{width:100%;padding:13px;text-align:left;color:#fff0d1;background:#2b190f;border:1px solid #76502e;border-radius:10px;margin:5px 0}
-@media(max-width:370px){.seat-circle{width:43px;height:43px}.seat-circle .avatar{width:39px;height:39px}.seats{gap:13px 1px}.room-dock button small{font-size:7px}}
+.search{display:flex;align-items:center;gap:9px;padding:0 12px;border:1px solid #403247;border-radius:12px;background:#191321;margin:15px 0}
+.search input{height:44px;flex:1;min-width:0;border:0;outline:0;background:transparent;color:white;font-size:12px}
+.filters{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px}
+.filters button{white-space:nowrap;border:1px solid #49394f;border-radius:25px;padding:8px 13px;background:#1d1725;color:#c5b5ca;font-size:10px}
+.filters button.selected{background:#e8c88e;color:#21150c;border-color:#e8c88e;font-weight:800}
+.roomcard{padding:13px;border:1px solid #49364d;border-radius:16px;background:linear-gradient(135deg,#2b1e31,#17121e);margin:11px 0}
+.roomcover{height:92px;border-radius:11px;margin-bottom:12px;background:linear-gradient(120deg,#6d466b,#2b2039,#805e40);display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden}
+.roomcover img{width:100%;height:100%;object-fit:cover}
+.pill{font-size:8px;padding:5px 8px;border-radius:20px;background:#543b36;color:#f5d4a0;letter-spacing:.5px}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}
+.stat{padding:13px 5px;text-align:center;border:1px solid #403247;border-radius:12px;background:#1b1523}
+.stat b{display:block;color:#f0cf91;font-size:19px}
+.stat span{font-size:9px;color:#a99caf}
+.bottom-action{position:fixed;z-index:21;bottom:0;left:50%;transform:translateX(-50%);width:min(620px,100%);height:76px;display:grid;grid-template-columns:repeat(7,1fr);align-items:center;background:#17111ff7;border-top:1px solid #49364e}
+.bottom-action button{border:0;background:none;color:#e5d4bd;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:8px}
+.bottom-action svg{width:20px;height:20px}
+.bottom-action .mainmic{width:47px;height:47px;border-radius:50%;background:linear-gradient(135deg,#f3dda9,#b9874d);color:#21150c}
+.roompage{min-height:calc(100vh - 68px);padding:12px 12px 100px;background:radial-gradient(ellipse at top,#49304b,#1a1422 55%,#100d17)}
+.roomhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:17px}
+.round{width:37px;height:37px;border:1px solid #624b61;border-radius:50%;background:#241a2c;color:#f2d7a3;display:grid;place-items:center}
+.roomidentity{display:flex;align-items:center;gap:10px;min-width:0}
+.roomidentity .avatar{width:49px;height:49px}
+.roomname{font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.roomid{font-size:9px;color:#b8a5bd;margin-top:4px}
+.roominfo{display:flex;justify-content:space-between;padding:11px;border:1px solid #574258;border-radius:11px;background:#211827;margin:13px 0;color:#e9d3b1;font-size:10px}
+.welcome{padding:11px;border-radius:10px;background:#493047;color:#f2d9b5;font-size:10px;margin:12px 0}
+.seats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px 3px;padding:17px 5px;border:1px solid #59435c;border-radius:15px;background:#211927}
+.seat{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+.seatcircle{width:48px;height:48px;border:2px solid #cba46e;border-radius:50%;display:grid;place-items:center;background:#38263c;color:#e8c98d;overflow:hidden}
+.seatcircle .avatar{width:100%;height:100%;border:0}
+.seat small{max-width:65px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;color:#e0cfbd}
+.seat em{font-size:7px;color:#e7c27e;font-style:normal}
+.chatpreview{margin:13px 0;padding:12px;border:1px solid #49394f;border-radius:12px;background:#191420;max-height:115px;overflow:hidden}
+.chatline{font-size:10px;color:#d8c9d9;margin:5px 0;overflow-wrap:anywhere}
+.chatline b{color:#f0cf91}
+.overlay{position:fixed;z-index:40;inset:0;background:#000b;display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:min(620px,100%);max-height:82vh;overflow:auto;padding:17px;border:1px solid #71546b;border-radius:21px 21px 0 0;background:#1b1421;padding-bottom:calc(22px + env(safe-area-inset-bottom))}
+.sheethead{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;color:#f2d8aa;font-weight:800}
+.chatbox{max-height:42vh;overflow:auto;padding:10px;border:1px solid #49394f;border-radius:12px;background:#110e17}
+.msg{padding:9px;margin:7px 0;border-radius:10px;background:#302239;font-size:11px;overflow-wrap:anywhere}
+.footer{display:flex;gap:7px;margin-top:9px}
+.footer input{flex:1;min-width:0}
+.toast{position:fixed;z-index:60;top:75px;left:50%;transform:translateX(-50%);max-width:90%;padding:11px 15px;border:1px solid #b38b59;border-radius:10px;background:#39283b;color:#fff;font-size:11px}
+.menuitem{width:100%;padding:13px;margin:4px 0;text-align:left;border:1px solid #49394f;border-radius:10px;background:#261c2d;color:#f2e5d5}
+@media(max-width:370px){.seats{gap:14px 1px}.seatcircle{width:42px;height:42px}.bottom-action button{font-size:7px}}
 `;
 
-function Avatar({name="U",size=45,url=""}) {
+function Avatar({name="U",url="",size=44}) {
   return <div className="avatar" style={{width:size,height:size}}>
-    {url?<img src={url} alt="Profile"/>:String(name).slice(0,1).toUpperCase()}
+    {url ? <img src={url} alt="Profile"/> : String(name).slice(0,1).toUpperCase()}
   </div>;
 }
 
 export default function App() {
-  const user=auth.currentUser;
-  const [tab,setTab]=useState("Room");
-  const [screen,setScreen]=useState("");
-  const [rooms,setRooms]=useState([]);
-  const [activeRoom,setActiveRoom]=useState(null);
-  const [members,setMembers]=useState([]);
-  const [messages,setMessages]=useState([]);
-  const [profile,setProfile]=useState({
-    name:user?.displayName||user?.email?.split("@")[0]||"Member",
+  const user = auth.currentUser;
+  const [tab,setTab] = useState("Home");
+  const [screen,setScreen] = useState("");
+  const [rooms,setRooms] = useState([]);
+  const [members,setMembers] = useState([]);
+  const [messages,setMessages] = useState([]);
+  const [activeRoom,setActiveRoom] = useState(null);
+  const [profile,setProfile] = useState({
+    name:user?.displayName || user?.email?.split("@")[0] || "Member",
     bio:"Welcome to ELVORA",
     country:"India",
-    photoURL:user?.photoURL||""
+    photoURL:user?.photoURL || ""
   });
-  const [roomName,setRoomName]=useState("");
-  const [roomType,setRoomType]=useState("Public");
-  const [capacity,setCapacity]=useState("20");
-  const [chatText,setChatText]=useState("");
-  const [search,setSearch]=useState("");
-  const [notice,setNotice]=useState("");
-  const [sheet,setSheet]=useState("");
-  const [micOn,setMicOn]=useState(false);
-  const [speakerOn,setSpeakerOn]=useState(true);
-  const [roomEdit,setRoomEdit]=useState({name:"",coverURL:"",backgroundURL:""});
-  const [profileEdit,setProfileEdit]=useState({name:"",bio:"",country:"",photoURL:""});
-  const [roomId,setRoomId]=useState("");
+  const [profileEdit,setProfileEdit] = useState({name:"",bio:"",country:"India",photoURL:""});
+  const [roomName,setRoomName] = useState("");
+  const [capacity,setCapacity] = useState("20");
+  const [privacy,setPrivacy] = useState("public");
+  const [search,setSearch] = useState("");
+  const [category,setCategory] = useState("All");
+  const [chatText,setChatText] = useState("");
+  const [roomEdit,setRoomEdit] = useState({name:"",coverURL:"",backgroundURL:""});
+  const [sheet,setSheet] = useState("");
+  const [notice,setNotice] = useState("");
+  const [micOn,setMicOn] = useState(false);
+  const [speakerOn,setSpeakerOn] = useState(true);
 
   useEffect(()=>{
-    if(!user)return;
-    const q=query(collection(db,"rooms"),orderBy("createdAt","desc"),limit(50));
+    if(!user) return;
+    const q=query(collection(db,"rooms"),orderBy("createdAt","desc"),limit(60));
     return onSnapshot(q,s=>setRooms(s.docs.map(d=>({id:d.id,...d.data()}))),e=>setNotice(e.message));
   },[user]);
 
   useEffect(()=>{
-    if(!activeRoom||!user)return;
-    const base=`rooms/${activeRoom.id}`;
-    const unsub1=onSnapshot(collection(db,base,"members"),s=>setMembers(s.docs.map(d=>d.data())));
-    const q=query(collection(db,base,"messages"),orderBy("createdAt","asc"),limit(100));
-    const unsub2=onSnapshot(q,s=>setMessages(s.docs.map(d=>d.data())));
-    return ()=>{unsub1();unsub2();};
-  },[activeRoom,user]);
-
-  useEffect(()=>{
-    if(!user)return;
-    const ref=doc(db,"users",user.uid);
-    return onSnapshot(ref,s=>{
+    if(!user) return;
+    return onSnapshot(doc(db,"users",user.uid),s=>{
       if(s.exists()){
         const d=s.data();
         setProfile(p=>({...p,name:d.displayName||p.name,bio:d.bio||p.bio,country:d.country||p.country,photoURL:d.photoURL||p.photoURL}));
@@ -144,64 +137,82 @@ export default function App() {
     });
   },[user]);
 
-  const createRoom=async()=>{
-    if(!roomName.trim())return setNotice("Room ka naam likho.");
-    try{
-      const name=roomName.trim();
-      const ref=await addDoc(collection(db,"rooms"),{
-        name,category:"Global",capacity:Number(capacity),
-        ownerId:user.uid,ownerName:profile.name,
-        privacy:roomType.toLowerCase(),
-        coverURL:"",backgroundURL:"",
-        createdAt:serverTimestamp()
-      });
-      setRoomName("");
-      setScreen("");
-      await joinRoom({id:ref.id,name,capacity:Number(capacity),ownerId:user.uid,ownerName:profile.name});
-    }catch(e){setNotice("Room create nahi hua: "+e.message);}
+  useEffect(()=>{
+    if(!activeRoom || !user) return;
+    const path=`rooms/${activeRoom.id}`;
+    const a=onSnapshot(collection(db,path,"members"),s=>setMembers(s.docs.map(d=>d.data())));
+    const q=query(collection(db,path,"messages"),orderBy("createdAt","asc"),limit(100));
+    const b=onSnapshot(q,s=>setMessages(s.docs.map(d=>d.data())));
+    return ()=>{a();b();};
+  },[activeRoom,user]);
+
+  const filteredRooms=useMemo(()=>rooms.filter(r=>{
+    const matches=(r.name||"").toLowerCase().includes(search.toLowerCase());
+    const publicRoom=(r.privacy||"public")==="public";
+    const matchesCategory=category==="All" || (r.category||"Global")===category;
+    return matches && publicRoom && matchesCategory;
+  }),[rooms,search,category]);
+
+  const notify=msg=>{
+    setNotice(msg);
+    setTimeout(()=>setNotice(""),3500);
   };
 
-  const joinRoom=async(room)=>{
+  const joinRoom=async room=>{
     try{
-      if(room.privacy==="private"&&room.ownerId!==user.uid){
-        setNotice("Private room access abhi invitation backend se connect nahi hai.");
+      if(room.privacy==="private" && room.ownerId!==user.uid){
+        notify("Private room ke liye owner invitation zaroori hai.");
         return;
       }
       await runTransaction(db,async tx=>{
-        const roomRef=doc(db,"rooms",room.id);
-        const roomSnap=await tx.get(roomRef);
-        if(!roomSnap.exists())throw new Error("Room available nahi hai.");
-        const memberRef=doc(db,"rooms",room.id,"members",user.uid);
-        const memberSnap=await tx.get(memberRef);
-        if(memberSnap.exists())return;
-        const cap=Number(roomSnap.data().capacity)||20;
-        const seatRefs=Array.from({length:cap},(_,i)=>doc(db,"rooms",room.id,"seats",String(i+1)));
-        const seatSnaps=await Promise.all(seatRefs.map(ref=>tx.get(ref)));
-        const freeIndex=seatSnaps.findIndex(s=>!s.exists());
-        if(freeIndex===-1)throw new Error("Room full hai.");
-        const seat=freeIndex+1;
-        tx.set(memberRef,{uid:user.uid,name:profile.name,seat,joinedAt:serverTimestamp()});
-        tx.set(seatRefs[freeIndex],{uid:user.uid,name:profile.name});
+        const rr=doc(db,"rooms",room.id);
+        const rs=await tx.get(rr);
+        if(!rs.exists()) throw new Error("Room nahi mila.");
+        const mr=doc(db,"rooms",room.id,"members",user.uid);
+        const ms=await tx.get(mr);
+        if(ms.exists()) return;
+        const cap=Number(rs.data().capacity)||20;
+        const refs=Array.from({length:cap},(_,i)=>doc(db,"rooms",room.id,"seats",String(i+1)));
+        const snaps=await Promise.all(refs.map(r=>tx.get(r)));
+        const index=snaps.findIndex(s=>!s.exists());
+        if(index<0) throw new Error("Room full hai.");
+        tx.set(mr,{uid:user.uid,name:profile.name,seat:index+1,joinedAt:serverTimestamp()});
+        tx.set(refs[index],{uid:user.uid,name:profile.name});
       });
       setActiveRoom(room);
-      setTab("Room");
+      setTab("Home");
       setScreen("LiveRoom");
-    }catch(e){setNotice(e.message);}
+    }catch(e){notify(e.message);}
+  };
+
+  const createRoom=async()=>{
+    if(!roomName.trim()) return notify("Room ka naam likho.");
+    try{
+      const data={
+        name:roomName.trim(),category:"Global",capacity:Number(capacity),
+        ownerId:user.uid,ownerName:profile.name,privacy,
+        coverURL:"",backgroundURL:"",createdAt:serverTimestamp()
+      };
+      const ref=await addDoc(collection(db,"rooms"),data);
+      setRoomName("");
+      setScreen("");
+      await joinRoom({id:ref.id,...data,createdAt:null});
+      notify("Room create ho gaya.");
+    }catch(e){notify("Room create nahi hua: "+e.message);}
   };
 
   const leaveRoom=async()=>{
-    if(!activeRoom)return;
+    if(!activeRoom) return;
     try{
       await runTransaction(db,async tx=>{
-        const memberRef=doc(db,"rooms",activeRoom.id,"members",user.uid);
-        const snap=await tx.get(memberRef);
+        const mr=doc(db,"rooms",activeRoom.id,"members",user.uid);
+        const snap=await tx.get(mr);
         if(snap.exists()){
-          const seat=snap.data().seat;
-          tx.delete(memberRef);
-          tx.delete(doc(db,"rooms",activeRoom.id,"seats",String(seat)));
+          tx.delete(mr);
+          tx.delete(doc(db,"rooms",activeRoom.id,"seats",String(snap.data().seat)));
         }
       });
-    }catch(e){setNotice(e.message);}
+    }catch(e){notify(e.message);}
     setActiveRoom(null);
     setMembers([]);
     setMessages([]);
@@ -211,307 +222,243 @@ export default function App() {
   };
 
   const sendMessage=async()=>{
-    if(!chatText.trim()||!activeRoom)return;
+    if(!chatText.trim() || !activeRoom) return;
     try{
       await addDoc(collection(db,"rooms",activeRoom.id,"messages"),{
-        text:chatText.trim(),senderId:user.uid,
-        senderName:profile.name,createdAt:serverTimestamp()
+        text:chatText.trim(),senderId:user.uid,senderName:profile.name,
+        createdAt:serverTimestamp()
       });
       setChatText("");
-    }catch(e){setNotice("Message send nahi hua: "+e.message);}
+    }catch(e){notify("Message send nahi hua: "+e.message);}
   };
 
   const saveProfile=async()=>{
+    if(!profileEdit.name.trim()) return notify("Username likho.");
     try{
       await setDoc(doc(db,"users",user.uid),{
-        displayName:profileEdit.name.trim(),
-        bio:profileEdit.bio,
-        country:profileEdit.country,
-        photoURL:profileEdit.photoURL.trim(),
+        displayName:profileEdit.name.trim(),bio:profileEdit.bio,
+        country:profileEdit.country,photoURL:profileEdit.photoURL.trim(),
         updatedAt:serverTimestamp()
       },{merge:true});
-      setProfile(p=>({...p,...profileEdit,name:profileEdit.name.trim()}));
-      setNotice("Profile details save ho gayi.");
+      setProfile({...profileEdit,name:profileEdit.name.trim()});
       setSheet("");
-    }catch(e){setNotice(e.message);}
+      notify("Profile save ho gayi.");
+    }catch(e){notify(e.message);}
   };
 
   const saveRoom=async()=>{
-    if(!activeRoom||activeRoom.ownerId!==user.uid)return setNotice("Sirf room owner settings change kar sakta hai.");
-    if(!roomEdit.name.trim())return setNotice("Room name khaali nahi ho sakta.");
+    if(activeRoom?.ownerId!==user.uid) return notify("Sirf owner settings badal sakta hai.");
+    if(!roomEdit.name.trim()) return notify("Room name khaali nahi ho sakta.");
     try{
       await updateDoc(doc(db,"rooms",activeRoom.id),{
-        name:roomEdit.name.trim(),
-        coverURL:roomEdit.coverURL.trim(),
-        backgroundURL:roomEdit.backgroundURL.trim(),
-        updatedAt:serverTimestamp()
+        name:roomEdit.name.trim(),coverURL:roomEdit.coverURL.trim(),
+        backgroundURL:roomEdit.backgroundURL.trim(),updatedAt:serverTimestamp()
       });
-      setActiveRoom(r=>({...r,name:roomEdit.name.trim(),coverURL:roomEdit.coverURL.trim(),backgroundURL:roomEdit.backgroundURL.trim()}));
-      setNotice("Room settings save ho gayi.");
+      setActiveRoom(r=>({...r,...roomEdit}));
       setSheet("");
-    }catch(e){setNotice("Settings save nahi hui: "+e.message);}
+      notify("Room settings save ho gayi.");
+    }catch(e){notify(e.message);}
   };
 
-  const go=name=>setScreen(name);
-  const filtered=rooms.filter(r=>(r.name||"").toLowerCase().includes(search.toLowerCase())&&(r.privacy||"public")==="public");
+  const Header=({title,back=true})=><header className="top">
+    {back?<button className="secondary" onClick={()=>setScreen("")}><ArrowLeft size={17}/></button>:
+      <div className="brand">ELVORA<small>VOICE COMMUNITY</small></div>}
+    <b style={{fontSize:14,color:"#f0d6ad"}}>{title}</b>
+    <button className="round" onClick={()=>notify("Notifications section abhi connect nahi hai.")}><Bell size={17}/></button>
+  </header>;
 
-  const Header=({title,backButton=true})=><div className="top">
-    {backButton?<button className="smallbtn" onClick={()=>setScreen("")}><ArrowLeft size={18}/></button>:<span className="brand">ELVORA</span>}
-    <b style={{fontSize:17,color:"#ffe0a8"}}>{title}</b>
-    <button className="smallbtn" onClick={()=>setNotice("ELVORA Community")}><Bell size={17}/></button>
-  </div>;
-
-  const BottomNav=()=> <div className="nav">
-    {[[Home,"Room"],[Compass,"Discover"],[MessageCircle,"Message"],[UserRound,"Me"]].map(([Icon,name])=>
-      <button key={name} className={tab===name?"active":""} onClick={()=>{setTab(name);setScreen("");}}>
-        <Icon/><span>{name}</span>
-      </button>
-    )}
-  </div>;
-
-  const RoomList=()=> <div className="page">
+  const RoomList=()=><main className="page">
     <div className="between">
-      <div><div className="heading">Discover Rooms</div><div className="sub">Global voice community</div></div>
-      <button className="btn" onClick={()=>go("Create Room")}><Plus size={15}/> Create</button>
+      <div><div className="sub">WELCOME TO ELVORA</div><div className="heading">Find your room</div><div className="sub">Meet people. Share your voice.</div></div>
+      <button className="btn" onClick={()=>setScreen("Create Room")}><Plus size={15}/> Create</button>
     </div>
-    <input className="input" placeholder="Search rooms..." value={search} onChange={e=>setSearch(e.target.value)}/>
-    <div className="grid2">
-      <div className="stat"><b>{rooms.length}</b><span className="sub">Rooms</span></div>
-      <div className="stat"><b>🌍</b><span className="sub">Global Community</span></div>
+    <div className="search"><Search size={17}/><input placeholder="Search public rooms..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
+    <div className="filters">
+      {["All","Global","Music","Gaming","Friends"].map(c=><button key={c} className={category===c?"selected":""} onClick={()=>setCategory(c)}>{c}</button>)}
     </div>
-    <div className="heading" style={{fontSize:17,marginTop:20}}>Public Rooms</div>
-    {filtered.length===0?<div className="panel sub">Abhi public rooms nahi hain. Pehla room create karo.</div>:
-      filtered.map(r=><div className="roomcard" key={r.id}>
+    <div className="statgrid">
+      <div className="stat"><b>{rooms.length}</b><span>ROOMS</span></div>
+      <div className="stat"><b>{rooms.filter(r=>r.privacy==="public"||!r.privacy).length}</b><span>PUBLIC</span></div>
+      <div className="stat"><b>🌍</b><span>GLOBAL</span></div>
+    </div>
+    <div className="between"><b style={{fontSize:16}}>Popular Rooms</b><span className="sub">Latest first</span></div>
+    {filteredRooms.length===0?<div className="panel" style={{textAlign:"center",padding:28}}><Radio size={30} color={GOLD}/><p className="sub">No public rooms found. Create the first room!</p></div>:
+      filteredRooms.map(r=><article className="roomcard" key={r.id}>
+        <div className="roomcover">{r.coverURL?<img src={r.coverURL} alt="Room cover"/>:<Headphones size={32} color="#f2d4a0"/>}</div>
         <div className="between">
-          <div className="row">
+          <div className="row" style={{minWidth:0}}>
             <Avatar name={r.ownerName||"H"} url={r.coverURL}/>
-            <div style={{minWidth:0}}><b>{r.name}</b><div className="sub">{r.ownerName||"Host"} · {r.capacity||20} seats</div></div>
+            <div style={{minWidth:0}}><b style={{fontSize:13}}>{r.name}</b><div className="sub">{r.ownerName||"Host"} · {r.capacity||20} seats</div></div>
           </div>
-          <span className="badge">LIVE ROOM</span>
+          <span className="pill">● PUBLIC</span>
         </div>
-        <div className="between" style={{marginTop:12}}>
-          <span className="sub"><Users size={13}/> {r.privacy||"Public"}</span>
-          <button className="darkbtn" onClick={()=>joinRoom(r)}>Join Room</button>
+        <div className="between" style={{marginTop:13}}>
+          <span className="sub"><Users size={13}/> {r.category||"Global"}</span>
+          <button className="btn" onClick={()=>joinRoom(r)}>Join Room <ChevronRight size={14}/></button>
         </div>
-      </div>)
+      </article>)
     }
-  </div>;
+  </main>;
 
-  const LiveRoom=()=> {
-    const roomBackground=activeRoom?.backgroundURL?{backgroundImage:`url("${activeRoom.backgroundURL}")`}:{};
-    return <div className="room-screen" style={roomBackground}>
-      <div className="room-toolbar">
-        <button onClick={leaveRoom}><ArrowLeft size={18}/></button>
-        <span className="badge">● LIVE</span>
-        <div className="row">
-          <button onClick={()=>setNotice("Share link feature backend mein connect hoga.")}><Share2 size={17}/></button>
-          <button onClick={()=>setSpeakerOn(v=>!v)}>{speakerOn?<Volume2 size={17}/>:<VolumeX size={17}/>}</button>
-          <button onClick={()=>setSheet("More")}><MoreHorizontal size={18}/></button>
-        </div>
+  const LiveRoom=()=> <main className="roompage" style={activeRoom?.backgroundURL?{backgroundImage:`linear-gradient(#171020dd,#171020ee),url("${activeRoom.backgroundURL}")`,backgroundSize:"cover"}:{}}>
+    <div className="roomhead">
+      <button className="round" onClick={leaveRoom}><ArrowLeft size={17}/></button>
+      <span className="pill">● LIVE ROOM</span>
+      <div className="row">
+        <button className="round" onClick={()=>notify("Room sharing abhi available nahi hai.")}><Share2 size={16}/></button>
+        <button className="round" onClick={()=>setSpeakerOn(v=>!v)}>{speakerOn?<Volume2 size={16}/>:<VolumeX size={16}/>}</button>
+        <button className="round" onClick={()=>setSheet("More")}><MoreHorizontal size={17}/></button>
       </div>
-
-      <div className="room-identity">
-        <Avatar name={activeRoom?.name||"E"} url={activeRoom?.coverURL} size={48}/>
-        <div style={{minWidth:0,flex:1}}>
-          <div className="room-title">{activeRoom?.name||"ELVORA Room"}</div>
-          <div className="room-id">Room ID: {activeRoom?.id}</div>
-        </div>
-        {activeRoom?.ownerId===user.uid&&<button className="smallbtn" onClick={()=>{
-          setRoomEdit({name:activeRoom.name||"",coverURL:activeRoom.coverURL||"",backgroundURL:activeRoom.backgroundURL||""});
-          setSheet("Room Settings");
-        }}><Settings size={17}/></button>}
-      </div>
-
-      <div className="room-info">
-        <span className="sub">🎙 Voice Stage</span>
-        <b style={{color:"#ffdfaa",fontSize:11}}>{members.length}/{activeRoom?.capacity||20} Members</b>
-      </div>
-
-      <div className="welcome">✨ Welcome to {activeRoom?.name}. Respect everyone and enjoy the room!</div>
-
-      <div className="stage-title">
-        <b>🎤 Microphone Seats</b>
-        <span className="sub">5 columns</span>
-      </div>
-
-      <div className="seats">
-        {Array.from({length:Number(activeRoom?.capacity)||20},(_,i)=>{
-          const m=members.find(x=>Number(x.seat)===i+1);
-          return <div className="seat" key={i}>
-            <div className="seat-circle">
-              {m?<Avatar name={m.name} size={45}/>:<Mic size={19}/>}
-            </div>
-            <small>{m?m.name:`Seat ${i+1}`}</small>
-            {m?.uid===activeRoom?.ownerId&&<span className="badge">HOST</span>}
-          </div>;
-        })}
-      </div>
-
-      <div className="listeners">
-        <Users size={16}/>
-        <span>{members.length} people on stage</span>
-        <button className="smallbtn" onClick={()=>setSheet("Members")}>View</button>
-      </div>
-
-      <div className="room-chat-preview" onClick={()=>setSheet("Chat")}>
-        {messages.slice(-3).map((m,i)=><div className="chat-line" key={i}><b>{m.senderName||"Member"}:</b>{m.text}</div>)}
-        {messages.length===0&&<div className="chat-line">Room chat yahan dikhega. Tap to open.</div>}
-      </div>
-    </div>;
-  };
-
-  const CreateRoom=()=> <div className="page">
-    <div className="heading">Create Voice Room</div>
-    <div className="panel">
-      <label className="sub">Room Name</label>
-      <input className="input" value={roomName} onChange={e=>setRoomName(e.target.value)} placeholder="Enter room name"/>
-      <label className="sub">Room Privacy</label>
-      <select className="input" value={roomType} onChange={e=>setRoomType(e.target.value)}>
-        <option>Public</option><option>Private</option>
-      </select>
-      <label className="sub">Speaker Seats</label>
-      <select className="input" value={capacity} onChange={e=>setCapacity(e.target.value)}>
-        {[2,10,15,20].map(n=><option key={n} value={n}>{n} Seats</option>)}
-      </select>
-      <button className="btn" style={{width:"100%",marginTop:12}} onClick={createRoom}>Create Room</button>
     </div>
-    <p className="sub">Note: Private room invitation and access protection will need a secure backend update.</p>
-  </div>;
+    <div className="roomidentity">
+      <Avatar name={activeRoom?.name||"E"} url={activeRoom?.coverURL} size={49}/>
+      <div style={{flex:1,minWidth:0}}>
+        <div className="roomname">{activeRoom?.name}</div>
+        <div className="roomid">Room ID: {activeRoom?.id}</div>
+      </div>
+      {activeRoom?.ownerId===user.uid&&<button className="round" onClick={()=>{setRoomEdit({name:activeRoom.name||"",coverURL:activeRoom.coverURL||"",backgroundURL:activeRoom.backgroundURL||""});setSheet("Room Settings");}}><Settings size={16}/></button>}
+    </div>
+    <div className="roominfo"><span>🎙 Speaker Stage</span><b>{members.length}/{activeRoom?.capacity||20} members</b></div>
+    <div className="welcome">✨ Welcome to {activeRoom?.name}. Be kind and respect everyone!</div>
+    <div className="between" style={{margin:"18px 2px 11px"}}><b>Microphone Seats</b><span className="sub">5-column stage</span></div>
+    <div className="seats">
+      {Array.from({length:Number(activeRoom?.capacity)||20},(_,i)=>{
+        const m=members.find(x=>Number(x.seat)===i+1);
+        return <div className="seat" key={i}>
+          <div className="seatcircle">{m?<Avatar name={m.name} size={44}/>:<Mic size={17}/>}</div>
+          <small>{m?m.name:`Seat ${i+1}`}</small>
+          {m?.uid===activeRoom?.ownerId&&<em>HOST</em>}
+        </div>;
+      })}
+    </div>
+    <div className="between" style={{margin:"13px 2px"}}>
+      <span className="sub"><Users size={14}/> {members.length} on stage</span>
+      <button className="secondary" onClick={()=>setSheet("Members")}>View members</button>
+    </div>
+    <div className="chatpreview" onClick={()=>setSheet("Chat")}>
+      <div className="between"><b style={{fontSize:11}}>Room Chat</b><span className="sub">Tap to open</span></div>
+      {messages.slice(-3).map((m,i)=><div className="chatline" key={i}><b>{m.senderName||"Member"}:</b> {m.text}</div>)}
+      {messages.length===0&&<div className="chatline">Say hello to the room!</div>}
+    </div>
+    <p className="sub" style={{textAlign:"center"}}>Mic controls are currently visual only; live audio service is not connected.</p>
+  </main>;
 
-  const ProfilePage=()=> <div className="page">
+  const CreateRoom=()=><main className="page">
+    <div className="heading">Create a Room</div>
+    <div className="panel">
+      <label className="sub">ROOM NAME</label>
+      <input className="input" placeholder="Give your room a name" value={roomName} onChange={e=>setRoomName(e.target.value)}/>
+      <label className="sub">PRIVACY</label>
+      <select className="input" value={privacy} onChange={e=>setPrivacy(e.target.value)}><option value="public">Public</option><option value="private">Private</option></select>
+      <label className="sub">SPEAKER SEATS</label>
+      <select className="input" value={capacity} onChange={e=>setCapacity(e.target.value)}>{[2,10,15,20].map(n=><option key={n} value={n}>{n} seats</option>)}</select>
+      <button className="btn" style={{width:"100%",marginTop:15}} onClick={createRoom}><Plus size={16}/> Create Room</button>
+    </div>
+  </main>;
+
+  const ProfilePage=()=><main className="page">
     <div className="heading">My Profile</div>
-    <div className="panel" style={{textAlign:"center",padding:24}}>
-      <Avatar name={profile.name} url={profile.photoURL} size={85}/>
-      <h2 style={{color:"#ffdfaa"}}>{profile.name}</h2>
+    <div className="panel" style={{textAlign:"center",padding:25}}>
+      <Avatar name={profile.name} url={profile.photoURL} size={86}/>
+      <h2 style={{color:"#f0d39b",marginBottom:5}}>{profile.name}</h2>
       <div className="sub">{profile.country} · ELVORA Member</div>
       <p className="sub">{profile.bio}</p>
-      <button className="btn darkbtn" onClick={()=>{
-        setProfileEdit({name:profile.name,bio:profile.bio,country:profile.country,photoURL:profile.photoURL});
-        setSheet("Edit Profile");
-      }}>Edit Profile</button>
+      <button className="btn" onClick={()=>{setProfileEdit({name:profile.name,bio:profile.bio,country:profile.country,photoURL:profile.photoURL});setSheet("Edit Profile");}}>Edit Profile</button>
     </div>
-    <div className="grid2">
-      <div className="stat"><b>0</b><span className="sub">Friends</span></div>
-      <div className="stat"><b>0</b><span className="sub">Followers</span></div>
+    <div className="statgrid">
+      <div className="stat"><b>0</b><span>FRIENDS</span></div>
+      <div className="stat"><b>0</b><span>FOLLOWERS</span></div>
+      <div className="stat"><b>0</b><span>FOLLOWING</span></div>
     </div>
-    {[[Wallet,"Wallet"],[Crown,"VIP & Membership"],[Users,"Family"],[Handshake,"Brother & Sister"],[Heart,"CP Space"],[Trophy,"Leaderboard"],[Settings,"Settings"]].map(([Icon,name])=>
-      <button className="panel" key={name} style={{width:"100%",color:"white",textAlign:"left"}} onClick={()=>go(name)}>
-        <div className="between"><div className="row"><Icon color={gold}/><b>{name}</b></div><ChevronRight color={gold}/></div>
-      </button>
-    )}
-  </div>;
+    {[[Wallet,"Wallet"],[Crown,"VIP Membership"],[Users,"Family & Friends"],[Trophy,"Leaderboard"],[ShieldCheck,"Safety & Privacy"],[Settings,"Settings"]].map(([Icon,label])=><button key={label} className="panel between" style={{width:"100%",color:"white",textAlign:"left"}} onClick={()=>setScreen(label)}><span className="row"><Icon color={GOLD}/><b>{label}</b></span><ChevronRight color={GOLD}/></button>)}
+  </main>;
 
-  const MessagesPage=()=> <div className="page">
-    <div className="heading">Messages & Friends</div>
-    <div className="panel"><Bell color={gold}/><b> Notifications</b><p className="sub">Community updates will appear here.</p></div>
-    <div className="panel"><Users color={gold}/><b> Friends</b><p className="sub">Friend requests and friend list backend pending.</p></div>
-    <div className="panel"><MessageCircle color={gold}/><b> Private Messages</b><p className="sub">Private chat backend pending.</p></div>
-  </div>;
+  const MessagesPage=()=><main className="page">
+    <div className="heading">Messages</div>
+    <div className="panel"><Bell color={GOLD}/><b> Notifications</b><p className="sub">Community notifications will appear here when connected.</p></div>
+    <div className="panel"><UserPlus color={GOLD}/><b> Friends</b><p className="sub">Friend requests and friend list need their backend.</p></div>
+    <div className="panel"><MessageCircle color={GOLD}/><b> Private Messages</b><p className="sub">Private messaging is not connected yet.</p></div>
+  </main>;
 
-  const WalletPage=()=> <div className="page">
-    <div className="heading">Wallet</div>
-    <div className="panel" style={{textAlign:"center",padding:25}}>
-      <Coins size={38} color={gold}/><h1 style={{color:"#ffdfaa"}}>0 Coins</h1>
-      <p className="sub">Display only. Coin purchases and transfers are not enabled.</p>
-    </div>
-  </div>;
-
-  const SettingsPage=()=> <div className="page">
+  const SettingsPage=()=><main className="page">
     <div className="heading">Settings</div>
-    <div className="panel"><b>Account</b><p className="sub">{user?.email||"Signed in"}</p></div>
-    <button className="btn" style={{width:"100%"}} onClick={()=>signOut(auth)}><LogOut size={17}/> Log Out</button>
-  </div>;
+    <div className="panel"><b>Signed-in account</b><p className="sub">{user?.email||"ELVORA account"}</p></div>
+    <button className="btn" style={{width:"100%"}} onClick={()=>signOut(auth)}><LogOut size={16}/> Log Out</button>
+  </main>;
 
-  const Placeholder=({title})=><div className="page"><div className="heading">{title}</div><div className="panel sub">Is feature ka secure backend abhi connect karna baaki hai.</div></div>;
+  const Placeholder=({title})=><main className="page"><div className="heading">{title}</div><div className="panel sub">This section needs its own secure backend before it can be enabled.</div></main>;
 
   let content;
-  if(screen==="LiveRoom")content=<LiveRoom/>;
-  else if(screen==="Create Room")content=<CreateRoom/>;
-  else if(screen==="Profile")content=<ProfilePage/>;
-  else if(screen==="Messages")content=<MessagesPage/>;
-  else if(screen==="Wallet")content=<WalletPage/>;
-  else if(screen==="Settings")content=<SettingsPage/>;
-  else if(screen)content=<Placeholder title={screen}/>;
-  else if(tab==="Room")content=<RoomList/>;
-  else if(tab==="Discover")content=<RoomList/>;
-  else if(tab==="Message")content=<MessagesPage/>;
+  if(screen==="LiveRoom") content=<LiveRoom/>;
+  else if(screen==="Create Room") content=<CreateRoom/>;
+  else if(screen==="Profile") content=<ProfilePage/>;
+  else if(screen==="Messages") content=<MessagesPage/>;
+  else if(screen==="Settings") content=<SettingsPage/>;
+  else if(screen) content=<Placeholder title={screen}/>;
+  else if(tab==="Home"||tab==="Discover") content=<RoomList/>;
+  else if(tab==="Messages") content=<MessagesPage/>;
   else content=<ProfilePage/>;
 
   return <div className="app">
     <style>{css}</style>
-    {!screen&&<Header title={tab} backButton={false}/>}
+    {!screen&&<Header title={tab} back={false}/>}
     {screen&&screen!=="LiveRoom"&&<Header title={screen}/>}
-    {notice&&<div className="toast" onClick={()=>setNotice("")}>{notice} ✕</div>}
+    {notice&&<div className="toast" onClick={()=>setNotice("")}>{notice}　✕</div>}
     {content}
 
-    {screen==="LiveRoom"&&activeRoom&&<div className="room-dock">
+    {screen==="LiveRoom"&&activeRoom&&<div className="bottom-action">
       <button onClick={()=>setSheet("Chat")}><MessageCircle/><small>Chat</small></button>
       <button onClick={()=>setSheet("Emoji")}><Smile/><small>Emoji</small></button>
       <button onClick={()=>setSpeakerOn(v=>!v)}>{speakerOn?<Volume2/>:<VolumeX/>}<small>Speaker</small></button>
-      <button className="mic-main" onClick={()=>setMicOn(v=>!v)}>{micOn?<Mic/>:<MicOff/>}</button>
+      <button className="mainmic" onClick={()=>setMicOn(v=>!v)}>{micOn?<Mic/>:<MicOff/>}</button>
       <button onClick={()=>setSheet("Members")}><Users/><small>Members</small></button>
       <button onClick={()=>setSheet("Gifts")}><Gift/><small>Gifts</small></button>
       <button onClick={()=>setSheet("More")}><MoreHorizontal/><small>More</small></button>
     </div>}
 
-    {!screen&&<BottomNav/>}
+    {!screen&&<nav className="nav">
+      {[[Home,"Home"],[Compass,"Discover"],[MessageCircle,"Messages"],[UserRound,"Me"]].map(([Icon,label])=><button key={label} className={tab===label?"active":""} onClick={()=>{setTab(label);setScreen("");}}><Icon/><span>{label}</span></button>)}
+    </nav>}
 
     {sheet&&<div className="overlay" onClick={()=>setSheet("")}>
-      <div className="sheet" onClick={e=>e.stopPropagation()}>
-        <div className="sheet-head"><b>{sheet}</b><button className="smallbtn" onClick={()=>setSheet("")}><X size={18}/></button></div>
+      <section className="sheet" onClick={e=>e.stopPropagation()}>
+        <div className="sheethead"><span>{sheet}</span><button className="round" onClick={()=>setSheet("")}><X size={17}/></button></div>
 
         {sheet==="Chat"&&<>
           <div className="chatbox">
-            {messages.map((m,i)=><div className="msg" key={i}><b style={{color:gold}}>{m.senderName||"Member"}</b><div>{m.text}</div></div>)}
-            {messages.length===0&&<p className="sub">Abhi koi message nahi hai.</p>}
+            {messages.map((m,i)=><div className="msg" key={i}><b style={{color:GOLD}}>{m.senderName||"Member"}</b><div>{m.text}</div></div>)}
+            {messages.length===0&&<p className="sub">No messages yet.</p>}
           </div>
-          <div className="footerInput">
-            <input className="input" placeholder="Write a message..." value={chatText} onChange={e=>setChatText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendMessage()}/>
-            <button className="btn" onClick={sendMessage}><Send size={17}/></button>
-          </div>
-        </>}
-
-        {sheet==="Room Settings"&&<>
-          <label className="sub">Room Name</label>
-          <input className="input" value={roomEdit.name} onChange={e=>setRoomEdit({...roomEdit,name:e.target.value})}/>
-          <label className="sub">Room DP image URL</label>
-          <input className="input" placeholder="https://..." value={roomEdit.coverURL} onChange={e=>setRoomEdit({...roomEdit,coverURL:e.target.value})}/>
-          <label className="sub">Room Background image URL</label>
-          <input className="input" placeholder="https://..." value={roomEdit.backgroundURL} onChange={e=>setRoomEdit({...roomEdit,backgroundURL:e.target.value})}/>
-          <button className="btn" style={{width:"100%"}} onClick={saveRoom}>Save Room Settings</button>
-          <p className="sub">Image URL use karo. Direct photo upload abhi connected nahi hai.</p>
+          <div className="footer"><input className="input" placeholder="Write a message..." value={chatText} onChange={e=>setChatText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendMessage()}/><button className="btn" onClick={sendMessage}><Send size={17}/></button></div>
         </>}
 
         {sheet==="Edit Profile"&&<>
-          <label className="sub">Username</label>
-          <input className="input" value={profileEdit.name} onChange={e=>setProfileEdit({...profileEdit,name:e.target.value})}/>
-          <label className="sub">Bio</label>
-          <textarea className="input" rows="3" value={profileEdit.bio} onChange={e=>setProfileEdit({...profileEdit,bio:e.target.value})}/>
-          <label className="sub">Country</label>
-          <select className="input" value={profileEdit.country} onChange={e=>setProfileEdit({...profileEdit,country:e.target.value})}>
-            <option>India</option><option>Bangladesh</option><option>Nepal</option><option>Other</option>
-          </select>
-          <label className="sub">Profile photo URL</label>
-          <input className="input" placeholder="https://..." value={profileEdit.photoURL} onChange={e=>setProfileEdit({...profileEdit,photoURL:e.target.value})}/>
+          <label className="sub">USERNAME</label><input className="input" value={profileEdit.name} onChange={e=>setProfileEdit({...profileEdit,name:e.target.value})}/>
+          <label className="sub">BIO</label><textarea className="input" rows="3" value={profileEdit.bio} onChange={e=>setProfileEdit({...profileEdit,bio:e.target.value})}/>
+          <label className="sub">COUNTRY</label><select className="input" value={profileEdit.country} onChange={e=>setProfileEdit({...profileEdit,country:e.target.value})}><option>India</option><option>Bangladesh</option><option>Nepal</option><option>Other</option></select>
+          <label className="sub">PROFILE PHOTO URL</label><input className="input" placeholder="https://..." value={profileEdit.photoURL} onChange={e=>setProfileEdit({...profileEdit,photoURL:e.target.value})}/>
           <button className="btn" style={{width:"100%"}} onClick={saveProfile}>Save Profile</button>
         </>}
 
-        {sheet==="Members"&&<>
-          {members.map(m=><div className="row" style={{padding:8,borderBottom:"1px solid #684322"}} key={m.uid}><Avatar name={m.name}/><div><b>{m.name}</b><div className="sub">Seat {m.seat}</div></div></div>)}
+        {sheet==="Room Settings"&&<>
+          <label className="sub">ROOM NAME</label><input className="input" value={roomEdit.name} onChange={e=>setRoomEdit({...roomEdit,name:e.target.value})}/>
+          <label className="sub">ROOM COVER URL</label><input className="input" value={roomEdit.coverURL} onChange={e=>setRoomEdit({...roomEdit,coverURL:e.target.value})}/>
+          <label className="sub">ROOM BACKGROUND URL</label><input className="input" value={roomEdit.backgroundURL} onChange={e=>setRoomEdit({...roomEdit,backgroundURL:e.target.value})}/>
+          <button className="btn" style={{width:"100%"}} onClick={saveRoom}>Save Room Settings</button>
         </>}
 
-        {sheet==="Emoji"&&<div className="grid2">
-          {["😀","😂","😍","🥳","❤️","🔥","👏","🎉","🌹","⭐","🎵","🙌"].map(e=><button className="menuitem" key={e} onClick={()=>setNotice("Emoji: "+e)} style={{textAlign:"center",fontSize:22}}>{e}</button>)}
-        </div>}
+        {sheet==="Members"&&members.map(m=><div className="row" style={{padding:9,borderBottom:"1px solid #49394f"}} key={m.uid}><Avatar name={m.name}/><div><b style={{fontSize:12}}>{m.name}</b><div className="sub">Seat {m.seat}</div></div></div>)}
 
-        {sheet==="Gifts"&&<div className="panel"><Gift color={gold}/><p className="sub">Gift catalogue and sending system secure backend ke baad enable hoga. Abhi coin purchase ya payment available nahi hai.</p></div>}
+        {sheet==="Emoji"&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>{["😀","😂","😍","🥳","❤️","🔥","👏","🎉","🌹","⭐","🎵","🙌"].map(e=><button className="menuitem" key={e} style={{textAlign:"center",fontSize:23}} onClick={()=>notify("Emoji selected: "+e)}>{e}</button>)}</div>}
+
+        {sheet==="Gifts"&&<div className="panel"><Gift color={GOLD}/><p className="sub">Gift catalogue will be connected after the secure gift backend is ready. No payments are enabled.</p></div>}
 
         {sheet==="More"&&<>
-          <button className="menuitem" onClick={()=>setNotice("Room share feature backend pending.")}><Share2 size={16}/> Share Room</button>
           {activeRoom?.ownerId===user.uid&&<button className="menuitem" onClick={()=>{setRoomEdit({name:activeRoom.name||"",coverURL:activeRoom.coverURL||"",backgroundURL:activeRoom.backgroundURL||""});setSheet("Room Settings");}}><Settings size={16}/> Room Settings</button>}
+          <button className="menuitem" onClick={()=>notify("Share feature is not connected yet.")}><Share2 size={16}/> Share Room</button>
           <button className="menuitem" onClick={leaveRoom}><LogOut size={16}/> Leave Room</button>
         </>}
-      </div>
+      </section>
     </div>}
   </div>;
 }
