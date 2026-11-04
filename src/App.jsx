@@ -1,1078 +1,401 @@
 import React, { useEffect, useState } from "react";
 import {
-  collection, doc, setDoc, addDoc, onSnapshot,
-  query, orderBy, limit, serverTimestamp, runTransaction
+  collection, doc, addDoc, setDoc, deleteDoc, onSnapshot,
+  query, orderBy, serverTimestamp, runTransaction, limit
 } from "firebase/firestore";
+import { signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
 import {
-  Home, Compass, Users, UserRound, Mic, MicOff,
-  Plus, LogOut, Send, ArrowLeft, Crown, Lock,
-  Globe, MessageCircle, Radio, Search, Bell,
-  Gift, Heart, Star, Shield, Settings, Wallet,
-  Trophy, Sparkles, Music, Gamepad2, UserPlus,
-  X, ChevronRight, Gem, Headphones, MessageSquare,
-  Flame, CircleUserRound, ShieldCheck
+  Home, Compass, MessageCircle, UserRound, Users, Mic, MicOff,
+  Plus, Search, Settings, Wallet, Crown, Gift, Trophy, Heart,
+  ChevronRight, ArrowLeft, Send, Globe, Lock, Bell, Shield,
+  Volume2, Smile, Radio, Star, LogOut, X, RefreshCw,
+  Headphones, Sparkles, UserPlus, Music, Camera, Coins,
+  Handshake, Flag, Menu
 } from "lucide-react";
 
-const purple = "#a855f7";
+const gold = "#e8bd70";
+const bg = "#100a13";
+
+const css = `
+*{box-sizing:border-box}
+body{margin:0;background:${bg};font-family:Arial,sans-serif;color:#fff}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+.app{min-height:100vh;max-width:600px;margin:auto;background:radial-gradient(ellipse at top,#48230e 0%,#1c0d0b 42%,#100a13 100%);position:relative;padding-bottom:90px;overflow:hidden}
+.top{height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid #8e6335;background:linear-gradient(90deg,#21100b,#593015,#21100b)}
+.brand{font-size:23px;font-weight:900;letter-spacing:2px;color:#ffdc9b;text-shadow:0 2px 12px #b77a2a}
+.gold{color:${gold}}
+.page{padding:16px}
+.heading{font-size:22px;font-weight:800;color:#ffdfaa;margin:8px 0 16px}
+.sub{color:#b9a28a;font-size:13px}
+.panel{background:linear-gradient(145deg,#4b2815,#1c0e0a 70%);border:1px solid #b9874b;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:inset 0 0 15px #b47a2422,0 5px 18px #0008}
+.panel.purple{background:linear-gradient(145deg,#4a1d53,#180b23);border-color:#b58bd0}
+.panel.red{background:linear-gradient(145deg,#511426,#210813);border-color:#b9874b}
+.btn{border:1px solid #e6bd75;border-radius:30px;padding:12px 18px;background:linear-gradient(100deg,#f4d38c,#986024);color:#271307;font-weight:800}
+.btn.dark{background:linear-gradient(120deg,#382012,#140b08);color:#ffdda1}
+.btn.ghost{background:#21120d;color:#f5d49c}
+.btn:disabled{opacity:.5}
+.row{display:flex;align-items:center;gap:12px}
+.between{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.input{width:100%;padding:13px;border:1px solid #9a7045;border-radius:12px;background:#170d0b;color:white;margin:7px 0;outline:none}
+.avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(140deg,#f3d18b,#6f3c18);border:2px solid #e8bd70;display:grid;place-items:center;color:#271408;font-weight:bold;flex-shrink:0}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(600px,100%);height:76px;background:linear-gradient(90deg,#160c09,#4a2815,#160c09);border-top:1px solid #c18c4c;display:flex;justify-content:space-around;align-items:center;z-index:10}
+.nav button{border:0;background:none;color:#bda078;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px}
+.nav button.active{color:#ffda87}
+.nav svg{width:22px;height:22px}
+.roomcard{border:1px solid #9d713e;border-radius:15px;padding:13px;background:linear-gradient(120deg,#492713,#1c100b);margin:10px 0}
+.seats{display:grid;grid-template-columns:repeat(5,1fr);gap:16px 7px;margin:22px 0}
+.seat{display:flex;align-items:center;flex-direction:column;gap:5px;min-width:0}
+.seatCircle{height:53px;width:53px;border-radius:50%;border:2px solid #d7a85c;background:radial-gradient(circle,#75431e,#160d09);display:grid;place-items:center;color:#f4d18d}
+.seat small{color:#d5c5b2;font-size:11px}
+.badge{font-size:10px;background:#9d5d19;color:#ffe3a9;border-radius:10px;padding:3px 7px}
+.listrow{padding:14px 10px;border-bottom:1px solid #704b2d;display:flex;align-items:center;gap:12px}
+.listrow:last-child{border:0}
+.stat{background:#25130d;border:1px solid #8c6337;border-radius:13px;padding:12px;text-align:center}
+.stat b{display:block;color:#ffdb91;font-size:20px}
+.smallbtn{background:#24140d;color:#f3d29a;border:1px solid #9a7045;border-radius:20px;padding:8px 12px}
+.chatbox{height:45vh;overflow:auto;background:#160c0b;border:1px solid #8a6338;border-radius:14px;padding:10px}
+.msg{padding:8px 11px;margin:8px 0;background:#432516;border-radius:12px;max-width:85%;width:max-content}
+.footerInput{display:flex;gap:8px;margin-top:10px}
+.footerInput input{flex:1;min-width:0}
+.goldline{height:1px;background:linear-gradient(90deg,transparent,#e6bd75,transparent);margin:15px 0}
+`;
+
+function Avatar({ name = "U", size = 48 }) {
+  return <div className="avatar" style={{width:size,height:size}}>{String(name).slice(0,1).toUpperCase()}</div>;
+}
 
 export default function App() {
   const user = auth.currentUser;
+  const [tab,setTab] = useState("Room");
+  const [screen,setScreen] = useState("");
+  const [rooms,setRooms] = useState([]);
+  const [activeRoom,setActiveRoom] = useState(null);
+  const [members,setMembers] = useState([]);
+  const [messages,setMessages] = useState([]);
+  const [profile,setProfile] = useState({
+    name:user?.displayName || user?.email?.split("@")[0] || "Member",
+    bio:"Welcome to ELVORA",
+    country:"India"
+  });
+  const [roomName,setRoomName] = useState("");
+  const [roomType,setRoomType] = useState("Public");
+  const [capacity,setCapacity] = useState(20);
+  const [chatText,setChatText] = useState("");
+  const [search,setSearch] = useState("");
+  const [notice,setNotice] = useState("");
 
-  const [tab, setTab] = useState("home");
-  const [rooms, setRooms] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [members, setMembers] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [profile, setProfile] = useState(null);
-  const [message, setMessage] = useState("");
-  const [muted, setMuted] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [roomName, setRoomName] = useState("");
-  const [capacity, setCapacity] = useState("10");
-  const [category, setCategory] = useState("General");
-  const [privacy, setPrivacy] = useState("public");
-  const [search, setSearch] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [toast, setToast] = useState("");
-  const [activeProfile, setActiveProfile] = useState(null);
-  const [localFriends, setLocalFriends] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [giftTarget, setGiftTarget] = useState(null);
-  const [showGifts, setShowGifts] = useState(false);
+  useEffect(()=>{
+    if(!user) return;
+    const q=query(collection(db,"rooms"),orderBy("createdAt","desc"),limit(50));
+    return onSnapshot(q,s=>setRooms(s.docs.map(d=>({id:d.id,...d.data()}))),e=>setNotice(e.message));
+  },[user]);
 
-  const notify = (text) => {
-    setToast(text);
-    setTimeout(() => setToast(""), 2500);
+  useEffect(()=>{
+    if(!activeRoom || !user) return;
+    const base=`rooms/${activeRoom.id}`;
+    const unsub1=onSnapshot(collection(db,base,"members"),s=>setMembers(s.docs.map(d=>d.data())));
+    const q=query(collection(db,base,"messages"),orderBy("createdAt","asc"),limit(100));
+    const unsub2=onSnapshot(q,s=>setMessages(s.docs.map(d=>d.data())));
+    return ()=>{unsub1();unsub2()};
+  },[activeRoom,user]);
+
+  const createRoom=async()=>{
+    if(!roomName.trim()) return setNotice("Room ka naam likho.");
+    try{
+      const ref=await addDoc(collection(db,"rooms"),{
+        name:roomName.trim(),category:"Global",capacity:Number(capacity),
+        ownerId:user.uid,ownerName:profile.name,privacy:roomType.toLowerCase(),
+        createdAt:serverTimestamp()
+      });
+      setRoomName("");
+      setScreen("");
+      await joinRoom({id:ref.id,name:roomName.trim(),capacity:Number(capacity),ownerId:user.uid});
+    }catch(e){setNotice("Room create nahi hua: "+e.message)}
   };
 
-  useEffect(() => {
-    if (!user) return;
-
-    const userRef = doc(db, "users", user.uid);
-
-    setDoc(userRef, {
-      uid: user.uid,
-      displayName: user.displayName || "ELVORA User",
-      email: user.email || "",
-      photoURL: user.photoURL || "",
-      updatedAt: serverTimestamp()
-    }, { merge: true }).catch(e => setError(e.message));
-
-    return onSnapshot(userRef, snap => {
-      if (snap.exists()) setProfile(snap.data());
-    });
-  }, [user]);
-
-  useEffect(() => {
-    const q = query(
-      collection(db, "rooms"),
-      orderBy("createdAt", "desc")
-    );
-
-    return onSnapshot(q, snap => {
-      setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, e => setError(e.message));
-  }, []);
-
-  useEffect(() => {
-    if (!selected) return;
-
-    const membersRef = collection(
-      db, "rooms", selected.id, "members"
-    );
-
-    const messagesRef = query(
-      collection(db, "rooms", selected.id, "messages"),
-      orderBy("createdAt", "asc"),
-      limit(50)
-    );
-
-    const stopMembers = onSnapshot(membersRef, snap => {
-      setMembers(snap.docs.map(d => d.data()));
-    }, e => setError(e.message));
-
-    const stopMessages = onSnapshot(messagesRef, snap => {
-      setMessages(snap.docs.map(d => ({
-        id: d.id, ...d.data()
-      })));
-    }, e => setError(e.message));
-
-    return () => {
-      stopMembers();
-      stopMessages();
-    };
-  }, [selected]);
-
-  async function createRoom() {
-    if (!roomName.trim() || busy || !user) return;
-
-    setBusy(true);
-    setError("");
-
-    try {
-      const roomRef = doc(collection(db, "rooms"));
-
-      await setDoc(roomRef, {
-        name: roomName.trim(),
-        category,
-        capacity: Number(capacity),
-        ownerId: user.uid,
-        ownerName: user.displayName || "ELVORA User",
-        privacy,
-        createdAt: serverTimestamp()
-      });
-
-      await joinRoom({
-        id: roomRef.id,
-        capacity: Number(capacity),
-        ownerId: user.uid
-      });
-
-      setRoomName("");
-      setShowCreate(false);
-      notify("Room created!");
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function joinRoom(room) {
-    if (!user) return;
-
-    setError("");
-
-    if (room.privacy === "private") {
-      notify("This is a private room.");
-      return;
-    }
-
-    try {
-      await runTransaction(db, async tx => {
-        const roomRef = doc(db, "rooms", room.id);
-        const memberRef = doc(
-          db, "rooms", room.id, "members", user.uid
-        );
-
-        const roomSnap = await tx.get(roomRef);
-        const memberSnap = await tx.get(memberRef);
-
-        if (!roomSnap.exists()) throw new Error("Room not found.");
-        if (memberSnap.exists()) return;
-
-        const data = roomSnap.data();
-        let freeSeat = null;
-
-        for (let i = 1; i <= data.capacity; i++) {
-          const seatRef = doc(
-            db, "rooms", room.id, "seats", String(i)
-          );
-          const seatSnap = await tx.get(seatRef);
-
-          if (!seatSnap.exists() && freeSeat === null) {
-            freeSeat = i;
-          }
+  const joinRoom=async(room)=>{
+    try{
+      await runTransaction(db,async tx=>{
+        const roomRef=doc(db,"rooms",room.id);
+        const roomSnap=await tx.get(roomRef);
+        if(!roomSnap.exists()) throw new Error("Room available nahi hai.");
+        const memberRef=doc(db,"rooms",room.id,"members",user.uid);
+        const memberSnap=await tx.get(memberRef);
+        if(memberSnap.exists()) return;
+        const cap=Number(roomSnap.data().capacity)||20;
+        let seat=null;
+        for(let i=1;i<=cap;i++){
+          const seatRef=doc(db,"rooms",room.id,"seats",String(i));
+          const seatSnap=await tx.get(seatRef);
+          if(!seatSnap.exists()){seat=i;break}
         }
-
-        if (!freeSeat) throw new Error("Room is full.");
-
-        const memberData = {
-          uid: user.uid,
-          displayName: user.displayName || "ELVORA User",
-          photoURL: user.photoURL || "",
-          seat: freeSeat,
-          joinedAt: serverTimestamp()
-        };
-
-        tx.set(memberRef, memberData);
-        tx.set(
-          doc(db, "rooms", room.id, "seats", String(freeSeat)),
-          memberData
-        );
+        if(!seat) throw new Error("Room full hai.");
+        tx.set(memberRef,{uid:user.uid,name:profile.name,seat,joinedAt:serverTimestamp()});
+        tx.set(doc(db,"rooms",room.id,"seats",String(seat)),{uid:user.uid,name:profile.name});
       });
+      setActiveRoom(room);
+      setTab("Room");
+      setScreen("LiveRoom");
+    }catch(e){setNotice(e.message)}
+  };
 
-      setSelected(room);
-      setTab("home");
-    } catch (e) {
-      setError(e.message);
-    }
-  }
-
-  async function leaveRoom() {
-    if (!selected || !user) return;
-
-    try {
-      await runTransaction(db, async tx => {
-        const memberRef = doc(
-          db, "rooms", selected.id, "members", user.uid
-        );
-
-        const snap = await tx.get(memberRef);
-        if (!snap.exists()) return;
-
-        const seat = snap.data().seat;
-
-        tx.delete(memberRef);
-        tx.delete(
-          doc(db, "rooms", selected.id, "seats", String(seat))
-        );
-      });
-
-      setSelected(null);
-      setMembers([]);
-      setMessages([]);
-    } catch (e) {
-      setError(e.message);
-    }
-  }
-
-  async function sendMessage(e) {
-    e.preventDefault();
-    if (!message.trim() || !selected || !user) return;
-
-    const text = message.trim();
-    setMessage("");
-
-    try {
-      await addDoc(
-        collection(db, "rooms", selected.id, "messages"),
-        {
-          senderId: user.uid,
-          senderName: user.displayName || "ELVORA User",
-          text,
-          createdAt: serverTimestamp()
+  const leaveRoom=async()=>{
+    if(!activeRoom) return;
+    try{
+      await runTransaction(db,async tx=>{
+        const memberRef=doc(db,"rooms",activeRoom.id,"members",user.uid);
+        const memberSnap=await tx.get(memberRef);
+        if(memberSnap.exists()){
+          const seat=memberSnap.data().seat;
+          tx.delete(memberRef);
+          tx.delete(doc(db,"rooms",activeRoom.id,"seats",String(seat)));
         }
-      );
-    } catch (e) {
-      setError(e.message);
-      setMessage(text);
-    }
-  }
+      });
+    }catch(e){setNotice(e.message)}
+    setActiveRoom(null);setScreen("");
+  };
 
-  const avatar = (name, photo, size = 48) => (
-    <div style={{
-      ...s.avatar,
-      width: size,
-      height: size,
-      minWidth: size,
-      fontSize: size / 2.2
-    }}>
-      {photo
-        ? <img src={photo} alt="" style={s.avatarImage} />
-        : (name || "U").charAt(0).toUpperCase()}
+  const sendMessage=async()=>{
+    if(!chatText.trim() || !activeRoom) return;
+    try{
+      await addDoc(collection(db,"rooms",activeRoom.id,"messages"),{
+        text:chatText.trim(),senderId:user.uid,senderName:profile.name,
+        createdAt:serverTimestamp()
+      });
+      setChatText("");
+    }catch(e){setNotice("Message send nahi hua: "+e.message)}
+  };
+
+  const saveProfile=async()=>{
+    try{
+      await setDoc(doc(db,"users",user.uid),{
+        displayName:profile.name,bio:profile.bio,country:profile.country,
+        photoURL:user.photoURL||"",updatedAt:serverTimestamp()
+      },{merge:true});
+      setNotice("Profile details save ho gayi.");
+      setScreen("");
+    }catch(e){setNotice(e.message)}
+  };
+
+  const go=(name)=>{setScreen(name)};
+  const back=()=>setScreen("");
+  const filtered=rooms.filter(r=>(r.name||"").toLowerCase().includes(search.toLowerCase()));
+
+  const Header=({title,backButton=true})=><div className="top">
+    {backButton?<button className="smallbtn" onClick={back}><ArrowLeft size={18}/></button>:<span className="brand">ELVORA</span>}
+    <b style={{fontSize:18,color:"#ffe0a8"}}>{title}</b>
+    <button className="smallbtn" onClick={()=>setNotice("ELVORA Community")}><Bell size={17}/></button>
+  </div>;
+
+  const openFeature=(name)=>{setScreen(name)};
+  const featureCard=(Icon,title,desc,color="")=><button className="panel" style={{textAlign:"left",color:"white",width:"100%"}} onClick={()=>openFeature(title)}>
+    <div className="row"><Icon color={gold} size={25}/><div style={{flex:1}}><b>{title}</b><div className="sub">{desc}</div></div><ChevronRight color={gold}/></div>
+  </button>;
+
+  const BottomNav=()=> <div className="nav">
+    {[
+      [Home,"Room"],[Users,"Moment"],[MessageCircle,"Message"],[UserRound,"Me"]
+    ].map(([Icon,name])=><button key={name} className={tab===name?"active":""} onClick={()=>{setTab(name);setScreen("");}}>
+      <Icon/><span>{name}</span>
+    </button>)}
+  </div>;
+
+  const RoomList=()=> <div className="page">
+    <div className="between"><div><div className="heading">Discover Rooms</div><div className="sub">Global voice community</div></div><button className="btn" onClick={()=>go("Create Room")}><Plus size={16}/> Create</button></div>
+    <input className="input" placeholder="Search rooms..." value={search} onChange={e=>setSearch(e.target.value)}/>
+    <div className="grid2">
+      <div className="stat"><b>{rooms.length}</b><span className="sub">Rooms</span></div>
+      <div className="stat"><b>🌍</b><span className="sub">Global Community</span></div>
     </div>
-  );
+    <div className="heading" style={{fontSize:18,marginTop:22}}>Live & Public Rooms</div>
+    {filtered.length===0?<div className="panel sub">Abhi rooms nahi hain. Pehla room create karo.</div>:filtered.map(r=><div className="roomcard" key={r.id}>
+      <div className="between"><div className="row"><div className="avatar">🎙</div><div><b>{r.name}</b><div className="sub">{r.ownerName||"Host"} · {r.privacy||"Public"}</div></div></div><span className="badge">LIVE ROOM</span></div>
+      <div className="between" style={{marginTop:13}}><span className="sub"><Users size={13} style={{verticalAlign:"middle"}}/> {r.capacity||20} seats</span><button className="btn dark" onClick={()=>joinRoom(r)}>Join Room</button></div>
+    </div>)}
+  </div>;
 
-  const title = (name, sub) => (
-    <div style={{ marginBottom: 20 }}>
-      <h2 style={s.heading}>{name}</h2>
-      <div style={s.mutedText}>{sub}</div>
+  const LiveRoom=()=> <div className="page">
+    <div className="between"><button className="smallbtn" onClick={leaveRoom}><ArrowLeft size={17}/> Leave</button><span className="badge">● LIVE</span><button className="smallbtn"><Volume2 size={17}/></button></div>
+    <div className="panel" style={{textAlign:"center",marginTop:15}}>
+      <div style={{fontSize:12,color:gold}}>ELVORA VOICE COMMUNITY</div>
+      <h2 style={{color:"#ffe0a8",margin:"9px 0"}}>{activeRoom?.name}</h2>
+      <div className="sub">Host: {activeRoom?.ownerName||profile.name}</div>
+      <div className="goldline"/>
+      <div className="between"><span className="sub">Participants</span><b>{members.length}/{activeRoom?.capacity||20}</b></div>
     </div>
-  );
-
-  const card = (children, extra = {}) => (
-    <div style={{ ...s.card, ...extra }}>{children}</div>
-  );
-
-  const button = (text, action, color = purple) => (
-    <button style={{ ...s.primary, background: color }} onClick={action}>
-      {text}
-    </button>
-  );
-
-  const gifts = [
-    ["🌹", "Rose", "10"],
-    ["❤️", "Heart", "50"],
-    ["🎂", "Cake", "100"],
-    ["💎", "Diamond", "500"],
-    ["👑", "Crown", "1000"],
-    ["🚀", "Rocket", "5000"]
-  ];
-
-  if (selected) {
-    return (
-      <main style={s.app}>
-        <header style={s.topbar}>
-          <button style={s.iconBtn} onClick={leaveRoom}>
-            <ArrowLeft />
-          </button>
-          <div style={{ flex: 1 }}>
-            <b>{selected.name}</b>
-            <small style={s.mutedText}>● LIVE ROOM</small>
-          </div>
-          <button style={s.iconBtn} onClick={() => setShowGifts(true)}>
-            <Gift />
-          </button>
-        </header>
-
-        <div style={s.roomBanner}>
-          <div style={{ fontSize: 26 }}>🎙️</div>
-          <div>
-            <b>{selected.name}</b>
-            <div style={s.mutedText}>
-              {selected.category} · {members.length}/{selected.capacity}
-            </div>
-          </div>
-          <span style={s.liveBadge}>LIVE</span>
+    <div className="seats">
+      {Array.from({length:Number(activeRoom?.capacity)||20},(_,i)=>{
+        const m=members.find(x=>Number(x.seat)===i+1);
+        return <div className="seat" key={i}>
+          <div className="seatCircle">{m?<Avatar name={m.name} size={49}/>:<Mic size={20}/>}</div>
+          <small>{m?m.name:`No.${i+1}`}</small>
+          {m?.uid===activeRoom?.ownerId&&<span className="badge">HOST</span>}
         </div>
+      })}
+    </div>
+    <div className="panel">
+      <div className="row" style={{justifyContent:"space-around"}}>
+        <button className="smallbtn" onClick={()=>setNotice("Mic feature ko LiveKit voice server se connect karna baaki hai.")}><Mic size={19}/><div className="sub">Mic</div></button>
+        <button className="smallbtn" onClick={()=>setNotice("Emoji panel agle update mein connect hoga.")}><Smile size={19}/><div className="sub">Emoji</div></button>
+        <button className="smallbtn" onClick={()=>setNotice("Gift sending secure wallet backend ke baad enable hoga.")}><Gift size={19}/><div className="sub">Gifts</div></button>
+        <button className="smallbtn" onClick={()=>setNotice("Invite feature agle update mein connect hoga.")}><UserPlus size={19}/><div className="sub">Invite</div></button>
+      </div>
+    </div>
+    <div className="heading" style={{fontSize:17}}>Room Chat</div>
+    <div className="chatbox">{messages.map((m,i)=><div className="msg" key={i}><b style={{color:gold,fontSize:12}}>{m.senderName||"Member"}</b><div>{m.text}</div></div>)}</div>
+    <div className="footerInput"><input className="input" placeholder="Write a message..." value={chatText} onChange={e=>setChatText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendMessage()}/><button className="btn" onClick={sendMessage}><Send size={18}/></button></div>
+  </div>;
 
-        <section style={s.stage}>
-          <div style={s.rowBetween}>
-            <h3>Voice Stage</h3>
-            <span style={s.mutedText}>🎤 {members.length} speakers</span>
-          </div>
+  const CreateRoom=()=> <div className="page">
+    <div className="heading">Create Voice Room</div>
+    <div className="panel">
+      <label className="sub">Room Name</label><input className="input" value={roomName} onChange={e=>setRoomName(e.target.value)} placeholder="Enter room name"/>
+      <label className="sub">Room Privacy</label><select className="input" value={roomType} onChange={e=>setRoomType(e.target.value)}><option>Public</option><option>Private</option></select>
+      <label className="sub">Speaker Seats</label><select className="input" value={capacity} onChange={e=>setCapacity(e.target.value)}>{[2,10,15,20].map(n=><option key={n} value={n}>{n} Seats</option>)}</select>
+      <button className="btn" style={{width:"100%",marginTop:12}} onClick={createRoom}>Create Room</button>
+    </div>
+  </div>;
 
-          <div style={s.seatGrid}>
-            {Array.from(
-              { length: selected.capacity || 10 },
-              (_, i) => {
-                const person = members.find(m => m.seat === i + 1);
-                return (
-                  <div
-                    key={i}
-                    style={s.seat}
-                    onClick={() => person && setActiveProfile(person)}
-                  >
-                    {person
-                      ? avatar(person.displayName, person.photoURL, 54)
-                      : <div style={s.emptySeat}><Mic size={22} /></div>}
-                    <small>{person?.displayName || `Seat ${i + 1}`}</small>
-                    {person?.uid === selected.ownerId &&
-                      <Crown size={14} color="#f5c76b" />}
-                  </div>
-                );
-              }
-            )}
-          </div>
-        </section>
+  const WalletPage=()=> <div className="page">
+    <div className="heading">My Wallet</div>
+    <div className="panel" style={{textAlign:"center",padding:28}}>
+      <Coins size={38} color={gold}/>
+      <div className="sub" style={{marginTop:10}}>ELVORA Coin Balance</div>
+      <div style={{fontSize:38,color:"#ffdc92",fontWeight:900}}>0</div>
+      <div className="sub">Demo display · No real-money balance</div>
+    </div>
+    <div className="panel"><b>Coin Store</b><p className="sub">Coin purchases are not enabled. Payment and age-safety checks are required before launch.</p></div>
+    <div className="panel"><b>Transaction History</b><p className="sub">No transactions yet.</p></div>
+  </div>;
 
-        {card(
-          <>
-            <div style={s.rowBetween}>
-              <h3>Room Members</h3>
-              <span style={s.mutedText}>{members.length} online</span>
-            </div>
-            {members.map(m => (
-              <div key={m.uid} style={s.memberRow}>
-                {avatar(m.displayName, m.photoURL, 38)}
-                <div style={{ flex: 1 }}>
-                  <b>{m.displayName}</b>
-                  <small style={s.mutedText}>
-                    {m.uid === selected.ownerId ? "Room Owner" : "Member"}
-                  </small>
-                </div>
-                {m.uid === selected.ownerId && <Crown color="#f5c76b" />}
-              </div>
-            ))}
-          </>
-        )}
+  const SettingsPage=()=> <div className="page">
+    <div className="heading">Settings</div>
+    <div className="panel row"><Avatar name={profile.name} size={65}/><div><b>{profile.name}</b><div className="sub">ELVORA Member</div></div></div>
+    {[
+      [Globe,"Language","English · Hindi"],
+      [Shield,"Account Security","Account and privacy"],
+      [Settings,"App Settings","Notifications and preferences"],
+      [MessageCircle,"Feedback","Share your feedback"],
+      [Star,"About ELVORA","Community voice platform"]
+    ].map(([Icon,title,desc])=><div className="panel" key={title} onClick={()=>setNotice(title+" settings") }><div className="between"><div className="row"><Icon color={gold}/><div><b>{title}</b><div className="sub">{desc}</div></div></div><ChevronRight/></div></div>)}
+    <button className="btn" style={{width:"100%"}} onClick={()=>signOut(auth)}><LogOut size={17}/> Log Out</button>
+  </div>;
 
-        <section style={s.chatPanel}>
-          <h3>Room Chat</h3>
-          <div style={s.messages}>
-            {messages.map(m => (
-              <p key={m.id} style={s.chatMessage}>
-                <b>{m.senderName}: </b>{m.text}
-              </p>
-            ))}
-          </div>
-          <form onSubmit={sendMessage} style={s.chatForm}>
-            <input
-              style={s.chatInput}
-              placeholder="Write a message..."
-              value={message}
-              onChange={e => setMessage(e.target.value)}
-            />
-            <button style={s.sendBtn} type="submit"><Send /></button>
-          </form>
-        </section>
+  const ProfilePage=()=> <div className="page">
+    <div className="heading">My Profile</div>
+    <div className="panel" style={{textAlign:"center",padding:25}}>
+      <Avatar name={profile.name} size={86}/>
+      <h2 style={{color:"#ffdfaa"}}>{profile.name}</h2>
+      <div className="sub">{profile.country} · ELVORA Member</div>
+      <p className="sub">{profile.bio}</p>
+      <button className="btn dark" onClick={()=>go("Edit Profile")}>Edit Profile</button>
+    </div>
+    <div className="grid2">
+      <div className="stat"><b>0</b><span className="sub">Friends</span></div>
+      <div className="stat"><b>0</b><span className="sub">Followers</span></div>
+    </div>
+    <div style={{marginTop:18}}>
+      {featureCard(Wallet,"Wallet","Coins and transactions")}
+      {featureCard(Crown,"VIP & Membership","Membership information")}
+      {featureCard(Users,"Family","Family community")}
+      {featureCard(Handshake,"Brother & Sister","Community bonds")}
+      {featureCard(Heart,"CP Space","Connect with a friend")}
+      {featureCard(Trophy,"Leaderboard","Community rankings")}
+      {featureCard(Settings,"Settings","Account preferences")}
+    </div>
+  </div>;
 
-        <footer style={s.roomControls}>
-          <button
-            style={s.control}
-            onClick={() => {
-              setMuted(!muted);
-              notify("Mic preview only. Voice service not connected.");
-            }}
-          >
-            {muted ? <MicOff /> : <Mic />}
-            <small>{muted ? "Muted" : "Mic"}</small>
-          </button>
-          <button style={s.control} onClick={() => setShowGifts(true)}>
-            <Gift /><small>Gifts</small>
-          </button>
-          <button style={s.leaveBtn} onClick={leaveRoom}>
-            Leave Room
-          </button>
-        </footer>
+  const EditProfile=()=> <div className="page">
+    <div className="heading">Edit Profile</div>
+    <div className="panel">
+      <label className="sub">Username</label><input className="input" value={profile.name} onChange={e=>setProfile({...profile,name:e.target.value})}/>
+      <label className="sub">Bio</label><textarea className="input" rows="3" value={profile.bio} onChange={e=>setProfile({...profile,bio:e.target.value})}/>
+      <label className="sub">Country</label><select className="input" value={profile.country} onChange={e=>setProfile({...profile,country:e.target.value})}><option>India</option><option>Bangladesh</option><option>Nepal</option><option>Other</option></select>
+      <button className="btn" style={{width:"100%"}} onClick={saveProfile}>Save Profile</button>
+    </div>
+    <p className="sub">Photo upload aur unique ELVORA ID ke liye storage/backend setup agle stage mein hoga.</p>
+  </div>;
 
-        {showGifts && (
-          <div style={s.overlay}>
-            <div style={s.modal}>
-              <div style={s.rowBetween}>
-                <h3>Send a Gift</h3>
-                <button style={s.iconBtn} onClick={() => setShowGifts(false)}>
-                  <X />
-                </button>
-              </div>
-              <div style={s.giftGrid}>
-                {gifts.map(g => (
-                  <button key={g[1]} style={s.giftItem}
-                    onClick={() => notify("Gift economy will be connected securely later.")}>
-                    <span style={{ fontSize: 30 }}>{g[0]}</span>
-                    <b>{g[1]}</b>
-                    <small>{g[2]} coins</small>
-                  </button>
-                ))}
-              </div>
-              <small style={s.mutedText}>
-                These are preview items. No coins or payments are processed.
-              </small>
-            </div>
-          </div>
-        )}
+  const MessagesPage=()=> <div className="page">
+    <div className="heading">Messages & Friends</div>
+    <div className="panel red"><div className="row"><Bell color={gold}/><div><b>Notifications</b><div className="sub">Your community updates will appear here.</div></div></div></div>
+    <div className="panel"><div className="row"><Users color={gold}/><div><b>Friends</b><div className="sub">Friend requests and friend list</div></div></div></div>
+    <div className="panel"><div className="row"><MessageCircle color={gold}/><div><b>Private Messages</b><div className="sub">Private chat backend is not connected yet.</div></div></div></div>
+  </div>;
 
-        {error && <p style={s.error}>{error}</p>}
-      </main>
-    );
-  }
+  const MomentPage=()=> <div className="page">
+    <div className="heading">Moments</div>
+    <div className="panel"><div className="row"><Camera color={gold}/><b>Community Moments</b></div><p className="sub">Share updates, photos and moments with your community. Posting and media upload will be connected in a later backend update.</p></div>
+  </div>;
 
-  return (
-    <main style={s.app}>
-      <header style={s.topbar}>
-        <div>
-          <div style={s.logo}>ELVORA</div>
-          <small style={s.mutedText}>Your voice. Your community.</small>
-        </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 9 }}>
-          <button style={s.iconBtn} onClick={() => setTab("inbox")}>
-            <Bell />
-          </button>
-          <button style={s.iconBtn} onClick={() => auth.signOut()}>
-            <LogOut />
-          </button>
-        </div>
-      </header>
+  const FamilyPage=()=> <div className="page">
+    <div className="heading">Family</div>
+    <div className="panel" style={{textAlign:"center",padding:28}}>
+      <Crown size={48} color={gold}/><h2 style={{color:"#ffdfaa"}}>ELVORA FAMILY</h2>
+      <p className="sub">Create a community, invite members and grow together.</p>
+      <button className="btn dark" onClick={()=>setNotice("Family creation will be enabled after family database rules are added.")}>Create Family</button>
+    </div>
+    <div className="panel"><b>Weekly Family Ranking</b><p className="sub">No ranking data yet.</p></div>
+    <div className="panel"><b>Monthly Family Ranking</b><p className="sub">No ranking data yet.</p></div>
+  </div>;
 
-      <section style={s.welcome}>
-        {avatar(profile?.displayName, profile?.photoURL, 52)}
-        <div style={{ flex: 1 }}>
-          <b>Welcome, {profile?.displayName || "User"}</b>
-          <small style={s.mutedText}>Find your people on ELVORA</small>
-        </div>
-        <span style={s.vipTag}>VIP</span>
-      </section>
+  const Leaderboard=()=> <div className="page">
+    <div className="heading">Leaderboard</div>
+    <div className="grid2">
+      <div className="panel purple"><Trophy color={gold}/><b>Room Gifts</b><div className="sub">Coming soon</div></div>
+      <div className="panel purple"><Crown color={gold}/><b>Wealth Ranking</b><div className="sub">Coming soon</div></div>
+    </div>
+    <div className="panel"><b>Daily · Weekly · Monthly</b><p className="sub">Rankings will show after verified activity data is connected.</p></div>
+  </div>;
 
-      {tab === "home" && (
-        <>
-          <div style={s.hero}>
-            <div style={{ fontSize: 12, color: "#d8b4fe" }}>
-              <Sparkles size={14} /> GLOBAL VOICE COMMUNITY
-            </div>
-            <h2>Meet people.<br />Share your voice.</h2>
-            <p>Join live conversations and discover communities.</p>
-            <button style={s.heroBtn} onClick={() => setShowCreate(true)}>
-              <Plus size={17} /> Create a Room
-            </button>
-          </div>
+  const CPPage=()=> <div className="page">
+    <div className="heading">CP Space</div>
+    <div className="panel" style={{textAlign:"center",padding:30}}>
+      <div className="row" style={{justifyContent:"space-around"}}>
+        <Avatar name={profile.name} size={75}/><Heart size={36} color="#f1b9c2"/><Avatar name="?" size={75}/>
+      </div>
+      <h2 style={{color:"#ffdfaa"}}>CP Connection</h2>
+      <p className="sub">Connect with a friend after mutual consent and safety checks.</p>
+      <button className="btn dark" onClick={()=>setNotice("CP requests will be available after secure friend system setup.")}>Bind CP</button>
+    </div>
+  </div>;
 
-          <div style={s.rowBetween}>
-            <div>
-              <h2 style={s.heading}>Live Voice Rooms</h2>
-              <small style={s.mutedText}>Discover active communities</small>
-            </div>
-            <button style={s.textBtn} onClick={() => setTab("discover")}>
-              See all <ChevronRight size={15} />
-            </button>
-          </div>
+  const SiblingPage=()=> <div className="page">
+    <div className="heading">Brother & Sister</div>
+    <div className="panel" style={{textAlign:"center",padding:28}}>
+      <Users size={48} color={gold}/><h2 style={{color:"#ffdfaa"}}>Community Bonds</h2>
+      <p className="sub">Create friendly community connections with clear consent.</p>
+      <div className="grid2"><button className="btn dark" onClick={()=>setNotice("Brother request feature is not connected yet.")}>Brother</button><button className="btn dark" onClick={()=>setNotice("Sister request feature is not connected yet.")}>Sister</button></div>
+    </div>
+  </div>;
 
-          {rooms.map(room => (
-            <div key={room.id} style={s.roomCard}>
-              <div style={s.roomCover}>
-                {room.category === "Music" ? "🎵" : "🎙️"}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <b>{room.name}</b>
-                <small style={s.mutedText}>
-                  {room.category} · {room.capacity} seats
-                </small>
-                <small style={s.mutedText}>Host: {room.ownerName}</small>
-              </div>
-              {room.privacy === "private" && <Lock size={16} />}
-              <button style={s.joinBtn} onClick={() => joinRoom(room)}>
-                Join
-              </button>
-            </div>
-          ))}
+  let content;
+  if(screen==="LiveRoom") content=<LiveRoom/>;
+  else if(screen==="Create Room") content=<CreateRoom/>;
+  else if(screen==="Wallet") content=<WalletPage/>;
+  else if(screen==="Settings") content=<SettingsPage/>;
+  else if(screen==="Edit Profile") content=<EditProfile/>;
+  else if(screen==="Family") content=<FamilyPage/>;
+  else if(screen==="Leaderboard") content=<Leaderboard/>;
+  else if(screen==="CP Space") content=<CPPage/>;
+  else if(screen==="Brother & Sister") content=<SiblingPage/>;
+  else if(screen==="VIP & Membership") content={<div className="page"><div className="heading">VIP & Membership</div><div className="panel"><Crown color={gold} size={40}/><h2>VIP Membership</h2><p className="sub">VIP benefits and purchases will be enabled only after secure membership and payment setup.</p></div></div>};
+  else if(screen==="Messages & Friends") content=<MessagesPage/>;
+  else if(screen==="Moment") content=<MomentPage/>;
+  else if(screen) content={<div className="page"><div className="heading">{screen}</div><div className="panel sub">This section will be connected in the next development stage.</div></div>};
+  else if(tab==="Room") content=<RoomList/>;
+  else if(tab==="Moment") content=<MomentPage/>;
+  else if(tab==="Message") content=<MessagesPage/>;
+  else content=<ProfilePage/>;
 
-          {rooms.length === 0 && card(
-            <div style={{ textAlign: "center", padding: 18 }}>
-              <Radio size={34} color={purple} />
-              <h3>No live rooms yet</h3>
-              <p style={s.mutedText}>Create your first community room.</p>
-              {button("Create Room", () => setShowCreate(true))}
-            </div>
-          )}
-
-          <h2 style={s.heading}>Explore ELVORA</h2>
-          <div style={s.featureGrid}>
-            {[
-              ["🏆", "Rankings", "rankings"],
-              ["💎", "VIP Club", "vip"],
-              ["🎁", "Gift Store", "store"],
-              ["👨‍👩‍👧", "Families", "family"]
-            ].map(item => (
-              <button key={item[1]} style={s.feature}
-                onClick={() => setTab(item[2])}>
-                <span style={{ fontSize: 28 }}>{item[0]}</span>
-                <b>{item[1]}</b>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      {tab === "discover" && (
-        <>
-          {title("Discover", "Find rooms and communities")}
-          <div style={s.searchBox}>
-            <Search size={18} />
-            <input
-              style={s.searchInput}
-              placeholder="Search rooms..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <div style={s.categoryRow}>
-            {["General", "Music", "Friends", "Gaming", "Education"].map(c => (
-              <button key={c} style={s.category}
-                onClick={() => setSearch(c)}>{c}</button>
-            ))}
-          </div>
-          {rooms.filter(r =>
-            `${r.name} ${r.category}`.toLowerCase().includes(search.toLowerCase())
-          ).map(room => (
-            <div key={room.id} style={s.roomCard}>
-              <div style={s.roomCover}>🎙️</div>
-              <div style={{ flex: 1 }}>
-                <b>{room.name}</b>
-                <small style={s.mutedText}>{room.category}</small>
-                <small style={s.mutedText}>{room.capacity} seats</small>
-              </div>
-              <button style={s.joinBtn} onClick={() => joinRoom(room)}>Join</button>
-            </div>
-          ))}
-        </>
-      )}
-
-      {tab === "friends" && (
-        <>
-          {title("Friends", "Your ELVORA connections")}
-          {card(
-            <>
-              <Users size={30} color={purple} />
-              <h3>Find friends</h3>
-              <p style={s.mutedText}>
-                Search using an ELVORA ID when the friend service is connected.
-              </p>
-              <div style={s.searchBox}>
-                <Search size={18} />
-                <input style={s.searchInput} placeholder="Search ELVORA ID" />
-              </div>
-              <button style={s.primary}
-                onClick={() => notify("Friend search backend is not connected yet.")}>
-                Search
-              </button>
-            </>
-          )}
-          <h3>Friend Requests</h3>
-          <p style={s.mutedText}>No friend requests yet.</p>
-          <h3>Your Friends</h3>
-          <p style={s.mutedText}>Your friends will appear here.</p>
-        </>
-      )}
-
-      {tab === "inbox" && (
-        <>
-          {title("Inbox", "Messages and room invitations")}
-          {card(
-            <>
-              <MessageCircle size={30} color={purple} />
-              <h3>Messages</h3>
-              <p style={s.mutedText}>
-                Private messaging and invitation inbox will appear here.
-              </p>
-            </>
-          )}
-          {card(
-            <>
-              <Bell size={28} color={purple} />
-              <h3>Notifications</h3>
-              <p style={s.mutedText}>You are all caught up.</p>
-            </>
-          )}
-        </>
-      )}
-
-      {tab === "profile" && (
-        <>
-          {title("My Profile", "Your ELVORA identity")}
-          {card(
-            <div style={{ textAlign: "center" }}>
-              {avatar(profile?.displayName, profile?.photoURL, 86)}
-              <h2>{profile?.displayName || "ELVORA User"}</h2>
-              <span style={s.vipTag}>VIP MEMBER</span>
-              <p style={s.mutedText}>{profile?.email}</p>
-              <p style={s.mutedText}>ELVORA ID: {user.uid}</p>
-              <p style={s.mutedText}>{profile?.bio || "Add your bio soon"}</p>
-              {button("Edit Profile", () =>
-                notify("Profile editor will be connected in the next stage.")
-              )}
-            </div>
-          )}
-          <div style={s.statsGrid}>
-            <div style={s.stat}><b>0</b><small>Friends</small></div>
-            <div style={s.stat}><b>0</b><small>Followers</small></div>
-            <div style={s.stat}><b>1</b><small>Level</small></div>
-          </div>
-          {["My Gifts", "My Frames", "My Family", "Settings"].map(x =>
-            card(<div style={s.rowBetween}><b>{x}</b><ChevronRight /></div>)
-          )}
-        </>
-      )}
-
-      {tab === "vip" && (
-        <>
-          {title("VIP Membership", "Special profile privileges")}
-          <div style={s.vipHero}>
-            <Crown size={44} color="#f5c76b" />
-            <h2>ELVORA VIP</h2>
-            <p>Exclusive profile styles and membership features.</p>
-          </div>
-          {["VIP 1 · Red", "VIP 2 · Pink", "VIP 3 · Premium"].map(x =>
-            card(<div style={s.rowBetween}><b>{x}</b><Lock /></div>)
-          )}
-          <p style={s.mutedText}>
-            Membership purchases are not enabled in this prototype.
-          </p>
-        </>
-      )}
-
-      {tab === "store" && (
-        <>
-          {title("Gift Store", "Explore virtual gifts")}
-          <div style={s.giftGrid}>
-            {gifts.map(g => (
-              <div key={g[1]} style={s.giftItem}>
-                <span style={{ fontSize: 34 }}>{g[0]}</span>
-                <b>{g[1]}</b>
-                <small>{g[2]} coins</small>
-              </div>
-            ))}
-          </div>
-          <p style={s.mutedText}>
-            Preview only. Real coin purchases and gift transfers need secure
-            payment and server-side validation.
-          </p>
-        </>
-      )}
-
-      {tab === "wallet" && (
-        <>
-          {title("Wallet", "Your ELVORA balance")}
-          <div style={s.walletCard}>
-            <Gem size={35} />
-            <h2>0 Coins</h2>
-            <p>Wallet balance preview</p>
-          </div>
-          {card(<><h3>Transactions</h3><p style={s.mutedText}>No transactions yet.</p></>)}
-        </>
-      )}
-
-      {tab === "rankings" && (
-        <>
-          {title("Rankings", "Community leaderboard")}
-          {["Global Ranking", "Room Ranking", "Family Ranking"].map((x, i) =>
-            card(<div style={s.rowBetween}><b>{i + 1}. {x}</b><Trophy color="#f5c76b" /></div>)
-          )}
-          <p style={s.mutedText}>Rankings will show verified server data.</p>
-        </>
-      )}
-
-      {tab === "family" && (
-        <>
-          {title("Families & CP", "Build your community")}
-          {card(
-            <>
-              <Users size={32} color={purple} />
-              <h3>Family Community</h3>
-              <p style={s.mutedText}>
-                Create or join a family and meet community members.
-              </p>
-              {button("Create Family", () => notify("Family backend not connected yet."))}
-            </>
-          )}
-          {card(
-            <>
-              <Heart size={32} color="#f472b6" />
-              <h3>CP / Partner</h3>
-              <p style={s.mutedText}>
-                Linked profiles and CP badges will be added with the
-                relationship service.
-              </p>
-            </>
-          )}
-        </>
-      )}
-
-      {tab === "settings" && (
-        <>
-          {title("Settings", "Manage your account")}
-          {card(
-            <>
-              <b>Account</b>
-              <p style={s.mutedText}>{user.email}</p>
-              <button style={s.dangerBtn} onClick={() => auth.signOut()}>
-                <LogOut size={17} /> Sign Out
-              </button>
-            </>
-          )}
-        </>
-      )}
-
-      {showCreate && (
-        <div style={s.overlay}>
-          <div style={s.modal}>
-            <div style={s.rowBetween}>
-              <h3>Create Voice Room</h3>
-              <button style={s.iconBtn} onClick={() => setShowCreate(false)}>
-                <X />
-              </button>
-            </div>
-            <input style={s.field} placeholder="Room name"
-              value={roomName} onChange={e => setRoomName(e.target.value)} />
-            <label style={s.label}>Stage seats</label>
-            <select style={s.field} value={capacity}
-              onChange={e => setCapacity(e.target.value)}>
-              <option value="2">2 seats</option>
-              <option value="10">10 seats</option>
-              <option value="15">15 seats</option>
-              <option value="20">20 seats</option>
-            </select>
-            <label style={s.label}>Category</label>
-            <select style={s.field} value={category}
-              onChange={e => setCategory(e.target.value)}>
-              {["General", "Music", "Friends", "Gaming", "Education"].map(c =>
-                <option key={c}>{c}</option>
-              )}
-            </select>
-            <label style={s.label}>Privacy</label>
-            <select style={s.field} value={privacy}
-              onChange={e => setPrivacy(e.target.value)}>
-              <option value="public">Public</option>
-              <option value="private">Private</option>
-            </select>
-            <button style={s.primary} disabled={busy} onClick={createRoom}>
-              {busy ? "Creating..." : "Create Room"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {activeProfile && (
-        <div style={s.overlay}>
-          <div style={s.modal}>
-            <button style={{ ...s.iconBtn, float: "right" }}
-              onClick={() => setActiveProfile(null)}><X /></button>
-            {avatar(activeProfile.displayName, activeProfile.photoURL, 75)}
-            <h3>{activeProfile.displayName}</h3>
-            <p style={s.mutedText}>ELVORA Member</p>
-            <button style={s.primary}
-              onClick={() => {
-                setActiveProfile(null);
-                notify("Profile details will be connected next.");
-              }}>
-              View Profile
-            </button>
-          </div>
-        </div>
-      )}
-
-      <nav style={s.nav}>
-        {[
-          ["home", Home, "Home"],
-          ["discover", Compass, "Discover"],
-          ["friends", Users, "Friends"],
-          ["inbox", MessageCircle, "Inbox"],
-          ["profile", UserRound, "Profile"]
-        ].map(([id, Icon, label]) => (
-          <button key={id} style={{
-            ...s.navBtn,
-            color: tab === id ? "#d8b4fe" : "#8e829e"
-          }} onClick={() => setTab(id)}>
-            <Icon size={21} />
-            <small>{label}</small>
-          </button>
-        ))}
-      </nav>
-
-      {error && <p style={s.error}>{error}</p>}
-      {toast && <div style={s.toast}>{toast}</div>}
-    </main>
-  );
+  return <div className="app">
+    <style>{css}</style>
+    <Header title={screen||tab} backButton={!!screen}/>
+    {notice&&<div className="panel" style={{margin:"10px 14px",color:"#ffdfaa"}} onClick={()=>setNotice("")}>{notice} <X size={14}/></div>}
+    {content}
+    {!screen&&<BottomNav/>}
+  </div>;
 }
-
-const s = {
-  app: {
-    minHeight: "100vh", maxWidth: 620, margin: "auto",
-    padding: 18, paddingBottom: 105, boxSizing: "border-box",
-    color: "#f7f4ff", background: "#0b0913",
-    fontFamily: "'DM Sans', Arial, sans-serif"
-  },
-  topbar: {
-    display: "flex", alignItems: "center", gap: 12,
-    padding: "10px 0 22px"
-  },
-  logo: {
-    fontSize: 25, fontWeight: 900, letterSpacing: 4,
-    background: "linear-gradient(90deg,#e9d5ff,#9333ea)",
-    WebkitBackgroundClip: "text", color: "transparent"
-  },
-  heading: { fontSize: 21, margin: "22px 0 5px" },
-  mutedText: {
-    display: "block", color: "#a99cbd",
-    fontSize: 12, marginTop: 5
-  },
-  iconBtn: {
-    background: "#241936", color: "white",
-    border: "1px solid #49335f", borderRadius: 12,
-    padding: 10, display: "grid", placeItems: "center"
-  },
-  avatar: {
-    borderRadius: "50%",
-    background: "linear-gradient(135deg,#9333ea,#4c1d95)",
-    display: "grid", placeItems: "center",
-    fontWeight: 800, overflow: "hidden"
-  },
-  avatarImage: { width: "100%", height: "100%", objectFit: "cover" },
-  welcome: {
-    display: "flex", alignItems: "center", gap: 12,
-    padding: 15, background: "#191329",
-    border: "1px solid #35264b", borderRadius: 17,
-    marginBottom: 22
-  },
-  vipTag: {
-    background: "linear-gradient(90deg,#f5c76b,#a86b18)",
-    color: "#24142d", fontWeight: 900,
-    padding: "5px 9px", borderRadius: 7, fontSize: 10
-  },
-  hero: {
-    padding: 22, borderRadius: 20, marginBottom: 24,
-    background: "linear-gradient(135deg,#35105c,#17102b 75%)",
-    border: "1px solid #623a82"
-  },
-  heroBtn: {
-    display: "flex", alignItems: "center", gap: 8,
-    padding: 12, border: 0, borderRadius: 10,
-    color: "white", background: "#9333ea", fontWeight: 700
-  },
-  rowBetween: {
-    display: "flex", alignItems: "center",
-    justifyContent: "space-between", gap: 10
-  },
-  textBtn: {
-    display: "flex", alignItems: "center",
-    color: "#d8b4fe", background: "none", border: 0
-  },
-  card: {
-    background: "#191329", border: "1px solid #35264b",
-    borderRadius: 16, padding: 16, marginBottom: 13
-  },
-  roomCard: {
-    display: "flex", alignItems: "center", gap: 11,
-    padding: 13, background: "#191329",
-    border: "1px solid #35264b", borderRadius: 16,
-    margin: "12px 0"
-  },
-  roomCover: {
-    width: 52, height: 52, borderRadius: 14,
-    display: "grid", placeItems: "center",
-    background: "linear-gradient(135deg,#59208a,#26173b)",
-    fontSize: 25
-  },
-  joinBtn: {
-    background: "#9333ea", color: "white",
-    border: 0, borderRadius: 9, padding: "10px 13px"
-  },
-  primary: {
-    width: "100%", padding: 13, border: 0,
-    borderRadius: 11, color: "white",
-    background: "#9333ea", fontWeight: 700, marginTop: 12
-  },
-  featureGrid: {
-    display: "grid", gridTemplateColumns: "repeat(2,1fr)",
-    gap: 12, marginTop: 14
-  },
-  feature: {
-    display: "grid", justifyItems: "start", gap: 8,
-    padding: 17, color: "white", textAlign: "left",
-    background: "#191329", border: "1px solid #35264b",
-    borderRadius: 15
-  },
-  nav: {
-    position: "fixed", bottom: 0, left: 0, right: 0,
-    maxWidth: 620, margin: "auto", display: "flex",
-    justifyContent: "space-around", padding: "11px 3px",
-    background: "#171123", borderTop: "1px solid #382849",
-    zIndex: 5
-  },
-  navBtn: {
-    display: "grid", justifyItems: "center", gap: 5,
-    background: "none", border: 0, fontSize: 10
-  },
-  stage: {
-    padding: 15, background: "#191329",
-    borderRadius: 18, border: "1px solid #49335f",
-    marginTop: 15
-  },
-  roomBanner: {
-    display: "flex", alignItems: "center", gap: 12,
-    padding: 15, borderRadius: 15,
-    background: "linear-gradient(120deg,#35105c,#191329)"
-  },
-  liveBadge: {
-    marginLeft: "auto", color: "#ff7777",
-    background: "#491b34", padding: "5px 8px",
-    borderRadius: 6, fontSize: 10, fontWeight: 800
-  },
-  seatGrid: {
-    display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))",
-    gap: 17, marginTop: 22
-  },
-  seat: {
-    display: "flex", flexDirection: "column",
-    alignItems: "center", gap: 6, minWidth: 0,
-    fontSize: 11, textAlign: "center"
-  },
-  emptySeat: {
-    width: 54, height: 54, borderRadius: "50%",
-    border: "1px dashed #70558f", color: "#b79acb",
-    display: "grid", placeItems: "center"
-  },
-  memberRow: {
-    display: "flex", alignItems: "center",
-    gap: 10, padding: "10px 0",
-    borderBottom: "1px solid #30233e"
-  },
-  chatPanel: {
-    marginTop: 18, background: "#191329",
-    padding: 14, borderRadius: 16
-  },
-  messages: {
-    height: 180, overflowY: "auto",
-    fontSize: 13, color: "#e9dff5"
-  },
-  chatMessage: {
-    background: "#292039", padding: 9,
-    borderRadius: 9, overflowWrap: "anywhere"
-  },
-  chatForm: { display: "flex", gap: 8 },
-  chatInput: {
-    flex: 1, minWidth: 0, padding: 12,
-    background: "#0e0b19", color: "white",
-    border: "1px solid #49335f", borderRadius: 10
-  },
-  sendBtn: {
-    background: "#9333ea", color: "white",
-    border: 0, borderRadius: 10, padding: 12
-  },
-  roomControls: {
-    display: "flex", justifyContent: "center",
-    gap: 13, padding: 20
-  },
-  control: {
-    display: "grid", justifyItems: "center", gap: 5,
-    background: "#302044", color: "white",
-    border: 0, borderRadius: 12, padding: 12
-  },
-  leaveBtn: {
-    background: "#a12e58", color: "white",
-    border: 0, borderRadius: 12, padding: 13
-  },
-  searchBox: {
-    display: "flex", alignItems: "center", gap: 9,
-    background: "#191329", border: "1px solid #49335f",
-    padding: 12, borderRadius: 12, marginBottom: 13
-  },
-  searchInput: {
-    flex: 1, minWidth: 0, background: "none",
-    border: 0, outline: "none", color: "white"
-  },
-  categoryRow: {
-    display: "flex", gap: 8, overflowX: "auto",
-    paddingBottom: 12
-  },
-  category: {
-    flexShrink: 0, background: "#302044", color: "white",
-    border: "1px solid #49335f", borderRadius: 20, padding: "8px 13px"
-  },
-  overlay: {
-    position: "fixed", inset: 0, zIndex: 20,
-    background: "#000b", display: "grid",
-    placeItems: "center", padding: 18
-  },
-  modal: {
-    width: "100%", maxWidth: 430, maxHeight: "85vh",
-    overflowY: "auto", background: "#191329",
-    border: "1px solid #49335f", borderRadius: 20, padding: 19
-  },
-  field: {
-    display: "block", width: "100%", boxSizing: "border-box",
-    padding: 13, margin: "8px 0 14px", borderRadius: 10,
-    background: "#0e0b19", color: "white",
-    border: "1px solid #49335f"
-  },
-  label: { color: "#c4b5d5", fontSize: 12 },
-  giftGrid: {
-    display: "grid", gridTemplateColumns: "repeat(3,1fr)",
-    gap: 10, margin: "18px 0"
-  },
-  giftItem: {
-    display: "grid", justifyItems: "center", gap: 6,
-    background: "#302044", border: "1px solid #49335f",
-    color: "white", padding: 12, borderRadius: 13
-  },
-  walletCard: {
-    padding: 25, borderRadius: 18, textAlign: "center",
-    background: "linear-gradient(135deg,#59208a,#241438)"
-  },
-  vipHero: {
-    textAlign: "center", padding: 28, borderRadius: 18,
-    background: "linear-gradient(135deg,#493016,#21152b)"
-  },
-  statsGrid: {
-    display: "grid", gridTemplateColumns: "repeat(3,1fr)",
-    gap: 10, margin: "15px 0"
-  },
-  stat: {
-    display: "grid", justifyItems: "center",
-    padding: 15, background: "#191329", borderRadius: 13
-  },
-  dangerBtn: {
-    display: "flex", gap: 8, alignItems: "center",
-    padding: 12, color: "white", background: "#922e48",
-    border: 0, borderRadius: 10
-  },
-  error: { color: "#ff8585", fontSize: 13, padding: 10 },
-  toast: {
-    position: "fixed", bottom: 85, left: "50%",
-    transform: "translateX(-50%)", zIndex: 30,
-    background: "#49335f", color: "white",
-    borderRadius: 10, padding: "12px 18px",
-    width: "max-content", maxWidth: "90%"
-  }
-};
