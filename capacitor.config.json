@@ -2,5 +2,13 @@
   "appId": "com.elvora.app",
   "appName": "ELVORA",
   "webDir": "dist",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "plugins": {
+    "FirebaseAuthentication": {
+      "providers": [
+        "google.com",
+        "phone"
+      ]
+    }
+  }
 }
