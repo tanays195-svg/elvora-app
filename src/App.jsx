@@ -1,18 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  collection, doc, addDoc, setDoc, updateDoc, onSnapshot,
+  collection, doc, addDoc, setDoc, onSnapshot,
   query, orderBy, serverTimestamp, runTransaction, limit
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
 import {
-  Home, Users, MessageCircle, UserRound, Mic, MicOff, Plus,
-  Settings, Wallet, Crown, Gift, Trophy, Heart, ChevronRight,
-  ArrowLeft, Send, Bell, Volume2, VolumeX, Share2,
-  MoreHorizontal, Search, X, Camera, Star, ShieldCheck,
-  LogOut, Headphones, Sparkles, Globe, Lock, Smile, Palette,
-  Medal, Copy, Image, Gem, UserPlus, Radio, Diamond,
-  Flame, Award, Clock, Check, Eye, Pencil, UserCheck
+  connectToLiveKitRoom,
+  disconnectFromLiveKitRoom,
+  enableRoomMicrophone,
+  disableRoomMicrophone
+} from "./livekit";
+import {
+  Home, Users, MessageCircle, UserRound, Mic, MicOff,
+  Plus, Settings, Wallet, Crown, Gift, Trophy, Heart,
+  ChevronRight, ArrowLeft, Send, Bell, Volume2, VolumeX,
+  Share2, MoreHorizontal, Search, X, Camera, Star,
+  ShieldCheck, LogOut, Headphones, Sparkles, Globe,
+  Lock, Smile, Palette, Medal, Copy, Gem, UserPlus,
+  Radio, Diamond, Flame, Award, Clock, Check, Eye, Pencil
 } from "lucide-react";
 
 const GOLD = "#f5ce78";
@@ -25,37 +31,33 @@ html,body,#root{margin:0;min-height:100%;background:#100700}
 body{font-family:'DM Sans',Arial,sans-serif;color:#fff}
 button,input,textarea,select{font:inherit}
 button{cursor:pointer;-webkit-tap-highlight-color:transparent}
-button:focus-visible,input:focus-visible{outline:2px solid #ffe5a2;outline-offset:2px}
-.app{max-width:620px;min-height:100dvh;margin:auto;position:relative;overflow:hidden;padding-bottom:90px;background:radial-gradient(ellipse at 50% 0%,#75451d 0%,#321707 36%,#100700 82%)}
+.app{max-width:620px;min-height:100dvh;margin:auto;position:relative;overflow:hidden;padding-bottom:90px;background:radial-gradient(ellipse at 50% 0%,#75451d,#321707 36%,#100700 82%)}
 .goldtext{color:#ffe19a}
-.top{height:66px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;position:sticky;top:0;z-index:10;background:linear-gradient(90deg,#160800f5,#59300ff5,#160800f5);border-bottom:1px solid #c18b42;box-shadow:0 3px 17px #000b}
+.top{height:66px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;position:sticky;top:0;z-index:10;background:linear-gradient(90deg,#160800f5,#59300ff5,#160800f5);border-bottom:1px solid #c18b42}
 .brand{font-family:Cinzel,serif;font-size:23px;font-weight:900;letter-spacing:3px;color:#ffe5a8;text-shadow:0 0 12px #e2a33d}
 .brand small{display:block;font:8px 'DM Sans';letter-spacing:3px;text-align:center;color:#d6b477}
 .page{padding:14px 13px 30px}
-.heading{font-family:Cinzel,serif;font-size:22px;font-weight:800;color:#ffe0a0;text-align:center;margin:12px 0 18px;text-shadow:0 2px 10px #b76c1c}
+.heading{font-family:Cinzel,serif;font-size:22px;color:#ffe0a0;text-align:center;margin:12px 0 18px}
 .sub{font-size:11px;color:#cbb18a}
 .row{display:flex;align-items:center;gap:9px}
 .between{display:flex;align-items:center;justify-content:space-between;gap:9px}
-.goldpanel{position:relative;padding:15px;margin:12px 0;border-radius:17px;border:1px solid #d09b4e;background:linear-gradient(145deg,#65330e,#301504 60%,#170900);box-shadow:inset 0 0 0 2px #58300f,0 5px 17px #0009}
-.goldpanel:before{content:"✦";position:absolute;top:5px;left:8px;color:#f5d18a;font-size:12px}
-.goldpanel:after{content:"";position:absolute;inset:5px;border:1px solid #a87535;border-radius:12px;pointer-events:none;opacity:.65}
-.btn{border:1px solid #ffe3a3;border-radius:30px;padding:11px 17px;background:linear-gradient(110deg,#ffe9a8,#d59a3d,#995018);color:#291304;font-weight:900;font-size:12px;box-shadow:0 0 13px #d9953655}
+.goldpanel{padding:15px;margin:12px 0;border-radius:17px;border:1px solid #d09b4e;background:linear-gradient(145deg,#65330e,#301504 60%,#170900);box-shadow:inset 0 0 0 2px #58300f,0 5px 17px #0009}
+.btn{border:1px solid #ffe3a3;border-radius:30px;padding:11px 17px;background:linear-gradient(110deg,#ffe9a8,#d59a3d,#995018);color:#291304;font-weight:900;font-size:12px}
 .btn2{border:1px solid #bd8743;border-radius:25px;padding:9px 13px;background:linear-gradient(120deg,#54290d,#1d0b03);color:#ffe2a0;font-size:11px}
 .round{width:38px;height:38px;border-radius:50%;border:1px solid #d4a45c;background:radial-gradient(#77431b,#1a0b03);color:#ffe5a8;display:grid;place-items:center;flex-shrink:0}
 .input{width:100%;padding:12px;border:1px solid #a9793e;border-radius:10px;background:#1c0c04;color:white;margin:6px 0 13px;outline:none}
-.input:focus{border-color:#ffe3a3}
-.avatar{width:46px;height:46px;border-radius:50%;border:2px solid #f0ca7b;background:linear-gradient(135deg,#f6dfaa,#754016);display:grid;place-items:center;overflow:hidden;flex-shrink:0;color:#281204;font-weight:900;box-shadow:0 0 12px #d9a34c55}
+.avatar{width:46px;height:46px;border-radius:50%;border:2px solid #f0ca7b;background:linear-gradient(135deg,#f6dfaa,#754016);display:grid;place-items:center;overflow:hidden;flex-shrink:0;color:#281204;font-weight:900}
 .avatar img{width:100%;height:100%;object-fit:cover}
 .tabs{display:flex;gap:22px;overflow:auto;padding:8px 2px 13px}
 .tabs button{border:0;background:none;color:#d0b184;font-weight:700;padding:7px 2px;white-space:nowrap}
 .tabs button.active{color:#ffe28b;border-bottom:3px solid #ffdc79}
-.banner{min-height:108px;border:2px solid #e5bb6b;border-radius:15px;background:radial-gradient(circle at 25%,#8d43a6,#36134a 58%,#19091e);display:flex;align-items:center;justify-content:space-around;margin:12px 0;color:#ffe7aa;font-family:Cinzel,serif;font-size:20px;font-weight:900;text-shadow:0 2px 8px #000;box-shadow:inset 0 0 0 3px #603b69,0 0 14px #a16bc355;cursor:pointer}
+.banner{min-height:108px;border:2px solid #e5bb6b;border-radius:15px;background:radial-gradient(circle at 25%,#8d43a6,#36134a 58%,#19091e);display:flex;align-items:center;justify-content:space-around;margin:12px 0;color:#ffe7aa;font-family:Cinzel,serif;font-size:20px;font-weight:900}
 .tilegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
-.tile{min-height:100px;border:1px solid #d5a75f;border-radius:16px;background:linear-gradient(145deg,#a96825,#4a2109 60%,#1b0b03);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:#ffe29b;box-shadow:inset 0 0 0 3px #59300f,0 4px 10px #0008}
-.tile svg{width:31px;height:31px;filter:drop-shadow(0 0 5px #eab75a)}
+.tile{min-height:95px;border:1px solid #d5a75f;border-radius:16px;background:linear-gradient(145deg,#a96825,#4a2109 60%,#1b0b03);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:#ffe29b}
+.tile svg{width:29px;height:29px}
 .tile span{font-size:11px;font-weight:800}
 .roomgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
-.roomcard{border:1px solid #d4a35b;border-radius:14px;padding:7px;background:linear-gradient(145deg,#63300e,#1c0b03);box-shadow:inset 0 0 0 2px #54290e,0 4px 12px #0009;min-width:0}
+.roomcard{border:1px solid #d4a35b;border-radius:14px;padding:7px;background:linear-gradient(145deg,#63300e,#1c0b03);min-width:0}
 .cover{height:105px;border-radius:9px;background:radial-gradient(circle,#a56a2c,#351605);display:grid;place-items:center;overflow:hidden;color:#ffe3a3}
 .cover img{width:100%;height:100%;object-fit:cover}
 .roompage{padding:12px 12px 105px;min-height:calc(100dvh - 66px);background:radial-gradient(ellipse at top,#633812,#291306 48%,#100700)}
@@ -63,10 +65,9 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffe5a2;outline-offse
 .roomidentity{display:flex;align-items:center;gap:10px;margin:12px 0}
 .roomname{font-weight:900;font-size:15px;color:#ffe3a0}
 .roomid{font-size:10px;color:#d8b987;margin-top:4px}
-.seats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:19px 3px;padding:18px 5px;border:1px solid #c28d48;border-radius:16px;background:linear-gradient(140deg,#4b260eaa,#180b04ee);box-shadow:inset 0 0 22px #0009}
+.seats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:19px 3px;padding:18px 5px;border:1px solid #c28d48;border-radius:16px;background:linear-gradient(140deg,#4b260eaa,#180b04ee)}
 .seat{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0}
-.seatcircle{width:49px;height:49px;border-radius:50%;border:2px solid #f0ca7b;background:radial-gradient(#8a511f,#1c0c04);display:grid;place-items:center;color:#f8d58f;overflow:hidden;box-shadow:0 0 11px #d9994266}
-.seatcircle .avatar{width:100%;height:100%;border:0}
+.seatcircle{width:49px;height:49px;border-radius:50%;border:2px solid #f0ca7b;background:radial-gradient(#8a511f,#1c0c04);display:grid;place-items:center;color:#f8d58f;overflow:hidden}
 .seat small{font-size:8px;color:#f1d7aa;max-width:66px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .welcome{padding:12px;background:#170a04d9;border-left:3px solid #e0a344;color:#ffda79;margin:13px 0;font-size:12px}
 .chatpreview{padding:11px;border:1px solid #93602f;border-radius:11px;background:#170a04;margin:13px 0;max-height:110px;overflow:hidden}
@@ -75,7 +76,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffe5a2;outline-offse
 .bottom-action button{border:0;background:none;color:#ffe1a2;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:8px}
 .bottom-action svg{width:21px;height:21px}
 .bottom-action .micmain{width:45px;height:45px;border-radius:50%;background:linear-gradient(#ffe5a4,#b36a20);color:#281204}
-.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:20;width:min(620px,100%);height:78px;padding-bottom:env(safe-area-inset-bottom);display:flex;justify-content:space-around;align-items:center;background:linear-gradient(90deg,#1b0b04f7,#63300ff7,#1b0b04f7);border:1px solid #b27a3b;border-radius:20px 20px 0 0;box-shadow:0 -5px 18px #0009}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:20;width:min(620px,100%);height:78px;padding-bottom:env(safe-area-inset-bottom);display:flex;justify-content:space-around;align-items:center;background:linear-gradient(90deg,#1b0b04f7,#63300ff7,#1b0b04f7);border:1px solid #b27a3b;border-radius:20px 20px 0 0}
 .nav button{border:0;background:none;color:#c7a66c;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:9px}
 .nav button.active{color:#ffe48c}
 .nav svg{width:22px;height:22px}
@@ -85,7 +86,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffe5a2;outline-offse
 .stat b{display:block;color:#ffdc8c;font-size:20px}
 .stat span{font-size:9px;color:#d6b98c}
 .overlay{position:fixed;inset:0;z-index:40;background:#000c;display:flex;align-items:flex-end;justify-content:center}
-.sheet{width:min(620px,100%);max-height:85dvh;overflow:auto;padding:17px 16px calc(24px + env(safe-area-inset-bottom));border:1px solid #d1a05a;border-radius:22px 22px 0 0;background:linear-gradient(145deg,#51270e,#1c0d05 70%);box-shadow:0 -8px 30px #000}
+.sheet{width:min(620px,100%);max-height:85dvh;overflow:auto;padding:17px 16px calc(24px + env(safe-area-inset-bottom));border:1px solid #d1a05a;border-radius:22px 22px 0 0;background:linear-gradient(145deg,#51270e,#1c0d05 70%)}
 .sheethead{display:flex;justify-content:space-between;align-items:center;color:#ffe0a0;font-family:Cinzel,serif;font-weight:900;margin-bottom:14px}
 .chatbox{height:40dvh;overflow:auto;padding:10px;border:1px solid #8c5b2d;border-radius:12px;background:#140902}
 .msg{padding:9px;margin:7px 0;border-radius:9px;background:#3a1b0b;font-size:11px;overflow-wrap:anywhere}
@@ -93,7 +94,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffe5a2;outline-offse
 .footer .input{flex:1;min-width:0;margin:7px 0}
 .toast{position:fixed;z-index:60;top:74px;left:50%;transform:translateX(-50%);max-width:90%;padding:11px 15px;border:1px solid #e5b86c;border-radius:10px;background:#3c1d0a;color:white;font-size:11px}
 .empty{text-align:center;padding:30px 12px;color:#d9bd91}
-@media(max-width:370px){.seatcircle{width:42px;height:42px}.seats{gap:14px 1px}.tile{min-height:88px}}
+@media(max-width:370px){.seatcircle{width:42px;height:42px}.seats{gap:14px 1px}}
 `;
 
 function numericId(value) {
@@ -120,13 +121,14 @@ export default function App() {
   const [members, setMembers] = useState([]);
   const [messages, setMessages] = useState([]);
   const [activeRoom, setActiveRoom] = useState(null);
+  const [liveKitRoom, setLiveKitRoom] = useState(null);
+  const [voiceConnecting, setVoiceConnecting] = useState(false);
   const [profile, setProfile] = useState({
     name: user?.displayName || user?.email?.split("@")[0] || "Member",
     bio: "Welcome to ELVORA",
     country: "India",
     photoURL: user?.photoURL || ""
   });
-
   const [profileEdit, setProfileEdit] = useState({});
   const [roomEdit, setRoomEdit] = useState({});
   const [roomName, setRoomName] = useState("");
@@ -139,8 +141,6 @@ export default function App() {
   const [micOn, setMicOn] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
   const [listTab, setListTab] = useState("Hot");
-  const [decorationTab, setDecorationTab] = useState("Frames");
-  const [levelTab, setLevelTab] = useState("Wealth");
   const [messageEnd, setMessageEnd] = useState(null);
 
   const uid = numericId(user?.uid);
@@ -148,22 +148,18 @@ export default function App() {
   const notify = (message) => {
     setNotice(message);
     window.clearTimeout(window.__elvoraToast);
-    window.__elvoraToast = window.setTimeout(() => setNotice(""), 3000);
+    window.__elvoraToast = window.setTimeout(() => setNotice(""), 3500);
   };
 
-  const filteredRooms = useMemo(() => {
-    return rooms.filter((r) => {
-      const isPublic = (r.privacy || "public") === "public";
-      const matches = (r.name || "").toLowerCase().includes(search.toLowerCase());
-      return isPublic && matches;
-    });
-  }, [rooms, search]);
+  const filteredRooms = useMemo(() => rooms.filter((r) =>
+    (r.privacy || "public") === "public" &&
+    (r.name || "").toLowerCase().includes(search.toLowerCase())
+  ), [rooms, search]);
 
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, "rooms"), orderBy("createdAt", "desc"), limit(60));
-    return onSnapshot(
-      q,
+    return onSnapshot(q,
       (snapshot) => setRooms(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))),
       (error) => notify("Rooms load nahi hue: " + error.message)
     );
@@ -191,13 +187,15 @@ export default function App() {
     const base = `rooms/${activeRoom.id}`;
     const stopMembers = onSnapshot(
       collection(db, base, "members"),
-      (snapshot) => setMembers(snapshot.docs.map((d) => d.data()))
+      (snapshot) => setMembers(snapshot.docs.map((d) => d.data())),
+      (error) => notify("Members load nahi hue: " + error.message)
     );
 
     const q = query(collection(db, base, "messages"), orderBy("createdAt", "asc"), limit(100));
-    const stopMessages = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map((d) => d.data()));
-    });
+    const stopMessages = onSnapshot(q,
+      (snapshot) => setMessages(snapshot.docs.map((d) => d.data())),
+      (error) => notify("Chat load nahi hui: " + error.message)
+    );
 
     return () => {
       stopMembers();
@@ -209,15 +207,66 @@ export default function App() {
     if (messageEnd?.scrollIntoView) messageEnd.scrollIntoView({ behavior: "smooth" });
   }, [messages, messageEnd]);
 
+  // Remote audio tracks ko device par play karna.
+  useEffect(() => {
+    if (!liveKitRoom) return;
+
+    const attached = new Set();
+
+    const onTrackSubscribed = (track) => {
+      if (track.kind !== "audio") return;
+      const element = track.attach();
+      element.autoplay = true;
+      element.playsInline = true;
+      element.style.display = "none";
+      document.body.appendChild(element);
+      attached.add(track);
+    };
+
+    const onTrackUnsubscribed = (track) => {
+      track.detach().forEach((element) => element.remove());
+      attached.delete(track);
+    };
+
+    liveKitRoom.on("trackSubscribed", onTrackSubscribed);
+    liveKitRoom.on("trackUnsubscribed", onTrackUnsubscribed);
+
+    return () => {
+      liveKitRoom.off("trackSubscribed", onTrackSubscribed);
+      liveKitRoom.off("trackUnsubscribed", onTrackUnsubscribed);
+      attached.forEach((track) => track.detach().forEach((element) => element.remove()));
+    };
+  }, [liveKitRoom]);
+
+  const connectVoice = async (room) => {
+    if (liveKitRoom || voiceConnecting) return;
+
+    setVoiceConnecting(true);
+    try {
+      const connection = await connectToLiveKitRoom({
+        roomName: `elvora-${room.id}`,
+        participantName: profile.name || "ELVORA Member"
+      });
+
+      setLiveKitRoom(connection);
+      setMicOn(false);
+      notify("Voice room connected! Mic abhi OFF hai.");
+    } catch (error) {
+      console.error("LiveKit connection error:", error);
+      notify("Voice connect nahi hua: " + (error.message || "Please retry."));
+    } finally {
+      setVoiceConnecting(false);
+    }
+  };
+
   const joinRoom = async (room) => {
     if (!user) return notify("Pehle login karo.");
 
-    try {
-      if (room.privacy === "private" && room.ownerId !== user.uid) {
-        notify("Private room mein abhi sirf owner join kar sakta hai.");
-        return;
-      }
+    if (room.privacy === "private" && room.ownerId !== user.uid) {
+      return notify("Private room mein abhi sirf owner join kar sakta hai.");
+    }
 
+    try {
       await runTransaction(db, async (tx) => {
         const roomRef = doc(db, "rooms", room.id);
         const roomSnap = await tx.get(roomRef);
@@ -228,9 +277,8 @@ export default function App() {
         if (memberSnap.exists()) return;
 
         const cap = Number(roomSnap.data().capacity) || 20;
-        const seatRefs = Array.from(
-          { length: cap },
-          (_, i) => doc(db, "rooms", room.id, "seats", String(i + 1))
+        const seatRefs = Array.from({ length: cap }, (_, i) =>
+          doc(db, "rooms", room.id, "seats", String(i + 1))
         );
 
         const seatSnaps = [];
@@ -247,19 +295,26 @@ export default function App() {
           joinedAt: serverTimestamp()
         });
 
-        tx.set(seatRefs[freeIndex], { uid: user.uid, name: profile.name });
+        tx.set(seatRefs[freeIndex], {
+          uid: user.uid,
+          name: profile.name
+        });
       });
 
       setActiveRoom({ ...room });
       setMessages([]);
       setScreen("LiveRoom");
       setTab("Room");
+
+      // Database membership ke baad voice connect.
+      await connectVoice(room);
     } catch (error) {
       notify(error.message || "Room join nahi hua.");
     }
   };
 
   const createRoom = async () => {
+    if (!user) return notify("Pehle login karo.");
     if (!roomName.trim()) return notify("Room ka naam likho.");
 
     try {
@@ -290,6 +345,7 @@ export default function App() {
       };
 
       setRoomName("");
+      setScreen("");
       await joinRoom(newRoom);
       notify("Room create ho gaya.");
     } catch (error) {
@@ -299,6 +355,17 @@ export default function App() {
 
   const leaveRoom = async () => {
     if (!activeRoom || !user) return;
+
+    try {
+      if (liveKitRoom) {
+        await disconnectFromLiveKitRoom(liveKitRoom);
+      }
+    } catch (error) {
+      console.error("Voice disconnect error:", error);
+    }
+
+    setLiveKitRoom(null);
+    setMicOn(false);
 
     try {
       await runTransaction(db, async (tx) => {
@@ -311,7 +378,9 @@ export default function App() {
           const seatSnap = await tx.get(seatRef);
 
           tx.delete(memberRef);
-          if (seatSnap.exists() && seatSnap.data().uid === user.uid) tx.delete(seatRef);
+          if (seatSnap.exists() && seatSnap.data().uid === user.uid) {
+            tx.delete(seatRef);
+          }
         }
       });
     } catch (error) {
@@ -322,7 +391,40 @@ export default function App() {
     setMembers([]);
     setMessages([]);
     setScreen("");
-    setMicOn(false);
+  };
+
+  const toggleMic = async () => {
+    if (!liveKitRoom) {
+      notify("Pehle voice room connect karo.");
+      return;
+    }
+
+    try {
+      if (micOn) {
+        await disableRoomMicrophone(liveKitRoom);
+        setMicOn(false);
+        notify("Microphone muted.");
+      } else {
+        await enableRoomMicrophone(liveKitRoom);
+        setMicOn(true);
+        notify("Microphone ON.");
+      }
+    } catch (error) {
+      setMicOn(false);
+      notify("Microphone start nahi hua. Permission check karo: " + error.message);
+    }
+  };
+
+  const toggleSpeaker = async () => {
+    if (liveKitRoom) {
+      try {
+        await liveKitRoom.startAudio();
+      } catch (error) {
+        notify("Audio playback start nahi hua: " + error.message);
+        return;
+      }
+    }
+    setSpeakerOn((v) => !v);
   };
 
   const sendMessage = async () => {
@@ -379,58 +481,12 @@ export default function App() {
     setSheet("Edit Profile");
   };
 
-  const openRoomEdit = () => {
-    if (activeRoom?.ownerId !== user?.uid) return notify("Sirf room owner settings badal sakta hai.");
-
-    setRoomEdit({
-      name: activeRoom?.name || "",
-      coverURL: activeRoom?.coverURL || "",
-      backgroundURL: activeRoom?.backgroundURL || "",
-      capacity: String(activeRoom?.capacity || 20)
-    });
-    setSheet("Room Settings");
-  };
-
-  const saveRoom = async () => {
-    if (activeRoom?.ownerId !== user?.uid) return notify("Sirf owner settings badal sakta hai.");
-    if (!roomEdit.name?.trim()) return notify("Room name likho.");
-
-    const newCapacity = Number(roomEdit.capacity);
-    if (!CAPACITIES.includes(newCapacity)) return notify("Seat capacity select karo.");
-
-    const occupiedSeats = members
-      .map((m) => Number(m.seat))
-      .filter((n) => Number.isFinite(n));
-
-    if (occupiedSeats.some((n) => n > newCapacity)) {
-      return notify("Is capacity mein kuch occupied seats nahi aa rahi. Pehle members seats chhodein.");
-    }
-
-    try {
-      const updated = {
-        name: roomEdit.name.trim(),
-        coverURL: (roomEdit.coverURL || "").trim(),
-        backgroundURL: (roomEdit.backgroundURL || "").trim(),
-        capacity: newCapacity,
-        updatedAt: serverTimestamp()
-      };
-
-      await updateDoc(doc(db, "rooms", activeRoom.id), updated);
-
-      setActiveRoom((r) => ({ ...r, ...updated }));
-      setSheet("");
-      notify("Room settings save ho gayi.");
-    } catch (error) {
-      notify("Settings save nahi hui: " + error.message);
-    }
-  };
-
   const copyText = async (text, label) => {
     try {
       await navigator.clipboard.writeText(text);
       notify(label + " copied.");
     } catch {
-      notify("Copy nahi ho saka. Text ko manually copy karo: " + text);
+      notify("Copy nahi ho saka. Text: " + text);
     }
   };
 
@@ -454,7 +510,7 @@ export default function App() {
       </div>
 
       <div className="banner" onClick={() => setScreen("Wallet")}>
-        <Gem size={48} /><span>Recharge<br />Rewards</span><Sparkles size={29} />
+        <Gem size={48} /><span>ELVORA<br />COMMUNITY</span><Sparkles size={29} />
       </div>
 
       <div className="tilegrid">
@@ -503,20 +559,15 @@ export default function App() {
   );
 
   const LiveRoom = () => (
-    <main
-      className="roompage"
-      style={activeRoom?.backgroundURL ? {
-        backgroundImage: `linear-gradient(#1a0b04bb,#160902dd),url("${activeRoom.backgroundURL}")`,
-        backgroundSize: "cover",
-        backgroundPosition: "center"
-      } : {}}
-    >
+    <main className="roompage">
       <div className="roomhead">
         <button className="round" onClick={leaveRoom}><ArrowLeft /></button>
-        <span className="goldtext" style={{ fontSize: 10, fontWeight: 900 }}>● LIVE ROOM</span>
+        <span className="goldtext" style={{ fontSize: 10, fontWeight: 900 }}>
+          {liveKitRoom ? "● VOICE CONNECTED" : voiceConnecting ? "CONNECTING..." : "● VOICE OFFLINE"}
+        </span>
         <div className="row">
           <button className="round" onClick={() => copyText(activeRoom?.roomCode || activeRoom?.id, "Room ID")}><Share2 size={16} /></button>
-          <button className="round" onClick={() => setSpeakerOn((v) => !v)}>
+          <button className="round" onClick={toggleSpeaker}>
             {speakerOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
           <button className="round" onClick={() => setSheet("More")}><MoreHorizontal /></button>
@@ -529,8 +580,6 @@ export default function App() {
           <div className="roomname">{activeRoom?.name}</div>
           <div className="roomid">ID: {activeRoom?.roomCode || numericId(activeRoom?.id)}</div>
         </div>
-        {activeRoom?.ownerId === user?.uid &&
-          <button className="round" onClick={openRoomEdit}><Settings /></button>}
       </div>
 
       <div className="between goldpanel" style={{ padding: 12 }}>
@@ -551,7 +600,9 @@ export default function App() {
           return (
             <div className="seat" key={i}>
               <div className="seatcircle">
-                {member ? <Avatar name={member.name} url={member.photoURL} size={45} /> : <Mic size={19} />}
+                {member
+                  ? <Avatar name={member.name} url={member.photoURL} size={45} />
+                  : <Mic size={19} />}
               </div>
               <small>{member ? member.name : `No.${i + 1}`}</small>
             </div>
@@ -573,7 +624,9 @@ export default function App() {
       </div>
 
       <div className="sub" style={{ textAlign: "center" }}>
-        Voice service abhi connect nahi hai. Mic button filhaal visual demo control hai.
+        {liveKitRoom
+          ? "Live voice connection active. Mic permission is controlled by you."
+          : "Voice connection nahi hua. Connection status check karo."}
       </div>
     </main>
   );
@@ -583,7 +636,7 @@ export default function App() {
       <div className="heading">My Profile</div>
       <div className="goldpanel" style={{ textAlign: "center", padding: 22 }}>
         <Avatar name={profile.name} url={profile.photoURL} size={94} />
-        <h2 className="goldtext" style={{ fontFamily: "Cinzel,serif", margin: "12px 0 4px" }}>{profile.name}</h2>
+        <h2 className="goldtext" style={{ fontFamily: "Cinzel,serif" }}>{profile.name}</h2>
         <div className="row" style={{ justifyContent: "center" }}>
           <span className="sub">UID: {uid}</span>
           <button className="btn2" onClick={() => copyText(uid, "UID")}><Copy size={13} /></button>
@@ -599,175 +652,16 @@ export default function App() {
       </div>
 
       <div className="tilegrid">
-        <button className="tile" onClick={() => setScreen("Wealth")}><Medal /><span>Wealth</span></button>
-        <button className="tile" onClick={() => setScreen("Decoration")}><Crown /><span>Decoration</span></button>
+        <button className="tile" onClick={() => setScreen("Wallet")}><Wallet /><span>Wallet</span></button>
+        <button className="tile" onClick={() => setScreen("Rank")}><Trophy /><span>Rank</span></button>
         <button className="tile" onClick={() => setScreen("Settings")}><Settings /><span>Settings</span></button>
       </div>
 
-      {[
-        [Wallet, "Wallet"], [Crown, "VIP Membership"], [Users, "Family"],
-        [Trophy, "Rank"], [Heart, "CP Space"], [ShieldCheck, "Safety & Privacy"]
-      ].map(([Icon, name]) => (
-        <button className="listitem" key={name} onClick={() => setScreen(name)}>
-          <span className="row"><Icon color={GOLD} />{name}</span><ChevronRight color={GOLD} />
+      {["Family", "CP Space", "Decoration", "Safety & Privacy"].map((t) => (
+        <button className="listitem" key={t} onClick={() => setScreen(t)}>
+          {t}<ChevronRight color={GOLD} />
         </button>
       ))}
-    </main>
-  );
-
-  const WalletPage = () => (
-    <main className="page">
-      <div className="heading">Wallet</div>
-      <div className="goldpanel" style={{ textAlign: "center", padding: 27 }}>
-        <Gem size={48} color={GOLD} />
-        <div className="goldtext">Gold Coins Balance</div>
-        <div style={{ fontSize: 39, fontWeight: 900, color: "#ffe19a" }}>0</div>
-        <div className="sub">Demo wallet · No purchases enabled</div>
-      </div>
-      {["Daily Activity", "Gift History", "Coin History", "Rewards"].map((t) => (
-        <div className="listitem" key={t}><span>{t}</span><span className="sub">Preview</span></div>
-      ))}
-    </main>
-  );
-
-  const FamilyPage = () => (
-    <main className="page">
-      <div className="heading">Family</div>
-      <div className="goldpanel" style={{ textAlign: "center", padding: 28 }}>
-        <Crown size={45} color={GOLD} />
-        <h3 className="goldtext">ELVORA Family</h3>
-        <p className="sub">Family groups and member system preview.</p>
-      </div>
-      {["Create Family", "Join Family", "My Family Members"].map((t) => (
-        <button className="listitem" key={t} onClick={() => notify("Family backend abhi implement nahi hua.")}>
-          {t}<ChevronRight />
-        </button>
-      ))}
-    </main>
-  );
-
-  const RoomSettingsPage = () => (
-    <main className="page">
-      <div className="heading">Room Settings</div>
-      <div className="goldpanel row">
-        <Avatar name={activeRoom?.name || "R"} url={activeRoom?.coverURL} size={55} />
-        <div>
-          <b>{activeRoom?.name || "Your Room"}</b>
-          <div className="sub">ID: {activeRoom?.roomCode || numericId(activeRoom?.id)}</div>
-        </div>
-      </div>
-      {[
-        ["Edit Room Info", "Name and description"],
-        ["Room Theme", "Gold royal theme"],
-        ["Room Cover", "Change room DP"],
-        ["Seat Capacity", `${activeRoom?.capacity || 20} seats`],
-        ["Seat Layout", "5-column stage"],
-        ["Room Background", "Background image"],
-        ["Moderator Management", "Moderator permissions"]
-      ].map(([title, desc]) => (
-        <button className="listitem" key={title} onClick={() => {
-          if (title === "Moderator Management") notify("Moderator permissions ke liye agla backend step zaroori hai.");
-          else openRoomEdit();
-        }}>
-          <span><b>{title}</b><div className="sub">{desc}</div></span>
-          <ChevronRight color={GOLD} />
-        </button>
-      ))}
-      <button className="btn" style={{ width: "100%", marginTop: 15 }} onClick={openRoomEdit}>Customize Room</button>
-    </main>
-  );
-
-  const DecorationPage = () => (
-    <main className="page">
-      <div className="heading">Decoration</div>
-      <div className="tabs">
-        {["Frames", "VIP", "Vehicles", "Chat Bubble", "Theme"].map((t) => (
-          <button key={t} className={decorationTab === t ? "active" : ""} onClick={() => setDecorationTab(t)}>{t}</button>
-        ))}
-      </div>
-      <div className="tilegrid">
-        {["Gold Frame", "Royal Frame", "Blue Frame", "Purple Frame"].map((t) => (
-          <div className="tile" key={t}><Crown size={38} /><span>{t}</span><small className="sub">Preview</small></div>
-        ))}
-      </div>
-      <p className="sub" style={{ textAlign: "center" }}>Decoration previews only. Purchases are not enabled.</p>
-    </main>
-  );
-
-  const WealthPage = () => (
-    <main className="page">
-      <div className="heading">Ranking & Levels</div>
-      <div className="tabs">
-        {["Wealth", "Charm", "Game"].map((t) => (
-          <button key={t} className={levelTab === t ? "active" : ""} onClick={() => setLevelTab(t)}>{t}</button>
-        ))}
-      </div>
-      <div className="goldpanel" style={{ textAlign: "center", padding: 28 }}>
-        <Avatar name={profile.name} url={profile.photoURL} size={90} />
-        <h2 className="goldtext">Level 1</h2>
-        <div style={{ height: 9, background: "#351708", borderRadius: 20, margin: "20px 0" }}>
-          <div style={{ width: "18%", height: "100%", background: "linear-gradient(90deg,#ffe59b,#b66c20)", borderRadius: 20 }} />
-        </div>
-        <b>0 EXP</b><p className="sub">Level display preview</p>
-      </div>
-      <div className="tilegrid">
-        {["Lv1-20", "Lv21-40", "Lv41-60", "Lv61-80"].map((t) => (
-          <div className="tile" key={t}><Medal /><span>{t}</span></div>
-        ))}
-      </div>
-    </main>
-  );
-
-  const CPSpace = () => (
-    <main className="page">
-      <div className="heading">CP Space</div>
-      <div className="goldpanel" style={{ textAlign: "center", padding: 25 }}>
-        <Heart size={42} color={GOLD} />
-        <h3 className="goldtext">Connection Space</h3>
-        <div className="row" style={{ justifyContent: "space-around", margin: 20 }}>
-          <Avatar name={profile.name} url={profile.photoURL} size={75} />
-          <Heart size={35} color={GOLD} />
-          <Avatar name="?" size={75} />
-        </div>
-        <p className="sub">Friendship and profile connection preview.</p>
-      </div>
-      <button className="btn" style={{ width: "100%" }} onClick={() => notify("Connection feature abhi implement nahi hua.")}>Create Connection</button>
-    </main>
-  );
-
-  const MessagesPage = () => (
-    <main className="page">
-      <div className="heading">Messages</div>
-      <button className="goldpanel row" style={{ width: "100%", color: "white", textAlign: "left" }} onClick={() => setScreen("Notifications")}>
-        <Bell color={GOLD} />
-        <div><b>Notifications</b><div className="sub">App notifications</div></div>
-      </button>
-      <div className="goldpanel row">
-        <Avatar name="E" />
-        <div><b>ELVORA Community</b><div className="sub">Welcome to ELVORA!</div></div>
-      </div>
-      <div className="goldpanel">
-        <b className="goldtext">Private Messages</b>
-        <p className="sub">Private chat backend abhi implement karna baaki hai.</p>
-      </div>
-    </main>
-  );
-
-  const SettingsPage = () => (
-    <main className="page">
-      <div className="heading">Settings</div>
-      <div className="goldpanel row">
-        <Avatar name={profile.name} url={profile.photoURL} size={62} />
-        <div><b>{profile.name}</b><div className="sub">UID: {uid}</div></div>
-      </div>
-      {["Language", "Account Security", "Feedback", "About Us", "Safety & Privacy"].map((t) => (
-        <button className="listitem" key={t} onClick={() => notify(t + " settings agle development step mein add honge.")}>
-          {t}<ChevronRight />
-        </button>
-      ))}
-      <button className="btn" style={{ width: "100%", marginTop: 22 }} onClick={() => signOut(auth)}>
-        <LogOut size={16} /> LogOut
-      </button>
     </main>
   );
 
@@ -776,7 +670,7 @@ export default function App() {
       <div className="heading">Create Room</div>
       <div className="goldpanel">
         <label className="sub">ROOM NAME</label>
-        <input className="input" maxLength={50} value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="ELVORA Music Room" />
+        <input className="input" maxLength={50} value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="ELVORA Global Room" />
         <label className="sub">PRIVACY</label>
         <select className="input" value={privacy} onChange={(e) => setPrivacy(e.target.value)}>
           <option value="public">Public</option>
@@ -791,27 +685,32 @@ export default function App() {
     </main>
   );
 
-  const SearchPage = () => (
+  const WalletPage = () => (
     <main className="page">
-      <div className="heading">Search Rooms</div>
-      <input className="input" placeholder="Enter room name..." value={search} onChange={(e) => setSearch(e.target.value)} />
-      {filteredRooms.map((r) => (
-        <button className="listitem" key={r.id} onClick={() => joinRoom(r)}>
-          <span><b>{r.name}</b><div className="sub">{r.roomCode} · {r.capacity} seats</div></span>
-          <UserPlus color={GOLD} />
-        </button>
-      ))}
-      {!filteredRooms.length && <div className="empty">No matching public rooms.</div>}
+      <div className="heading">Wallet</div>
+      <div className="goldpanel" style={{ textAlign: "center", padding: 27 }}>
+        <Gem size={48} color={GOLD} />
+        <div className="goldtext">Demo Gold Coins</div>
+        <div style={{ fontSize: 39, fontWeight: 900, color: "#ffe19a" }}>0</div>
+        <div className="sub">Demo only · No purchases enabled</div>
+      </div>
     </main>
   );
 
-  const NotificationsPage = () => (
+  const SettingsPage = () => (
     <main className="page">
-      <div className="heading">Notifications</div>
-      <div className="goldpanel">
-        <Bell color={GOLD} />
-        <p className="sub">Notifications ka secure backend abhi connect nahi hai.</p>
+      <div className="heading">Settings</div>
+      <div className="goldpanel row">
+        <Avatar name={profile.name} url={profile.photoURL} size={62} />
+        <div><b>{profile.name}</b><div className="sub">UID: {uid}</div></div>
       </div>
+      <button className="listitem" onClick={() => setScreen("Safety & Privacy")}>Safety & Privacy <ShieldCheck /></button>
+      <button className="btn" style={{ width: "100%", marginTop: 22 }} onClick={async () => {
+        if (liveKitRoom) await disconnectFromLiveKitRoom(liveKitRoom);
+        await signOut(auth);
+      }}>
+        <LogOut size={16} /> LogOut
+      </button>
     </main>
   );
 
@@ -819,7 +718,7 @@ export default function App() {
     <main className="page">
       <div className="heading">{title}</div>
       <div className="goldpanel">
-        <p className="sub">Is section ka backend aur working features agle development phase mein add honge.</p>
+        <p className="sub">Is feature ka backend baad mein implement hoga.</p>
       </div>
     </main>
   );
@@ -829,20 +728,13 @@ export default function App() {
   if (screen === "LiveRoom") content = activeRoom ? <LiveRoom /> : <HomePage />;
   else if (screen === "Create Room") content = <CreateRoomPage />;
   else if (screen === "Profile") content = <ProfilePage />;
-  else if (screen === "Messages") content = <MessagesPage />;
   else if (screen === "Wallet") content = <WalletPage />;
-  else if (screen === "Family") content = <FamilyPage />;
-  else if (screen === "Room Settings") content = <RoomSettingsPage />;
-  else if (screen === "Decoration") content = <DecorationPage />;
-  else if (screen === "Wealth" || screen === "Rank") content = <WealthPage />;
-  else if (screen === "CP Space") content = <CPSpace />;
-  else if (screen === "Settings" || screen === "VIP Membership" || screen === "Safety & Privacy") content = <SettingsPage />;
-  else if (screen === "Search") content = <SearchPage />;
-  else if (screen === "Notifications") content = <NotificationsPage />;
+  else if (screen === "Settings") content = <SettingsPage />;
+  else if (screen === "Search") content = <HomePage />;
   else if (screen) content = <Placeholder title={screen} />;
   else if (tab === "Room") content = <HomePage />;
   else if (tab === "Moment") content = <Placeholder title="Moment" />;
-  else if (tab === "Message") content = <MessagesPage />;
+  else if (tab === "Message") content = <Placeholder title="Messages" />;
   else content = <ProfilePage />;
 
   return (
@@ -857,18 +749,16 @@ export default function App() {
         <div className="bottom-action">
           <button onClick={() => setSheet("Chat")}><MessageCircle /><small>Chat</small></button>
           <button onClick={() => setSheet("Emoji")}><Smile /><small>Emoji</small></button>
-          <button onClick={() => setSpeakerOn((v) => !v)}>
+          <button onClick={toggleSpeaker}>
             {speakerOn ? <Volume2 /> : <VolumeX />}<small>Sound</small>
           </button>
-          <button className="micmain" onClick={() => {
-            setMicOn((v) => !v);
-            notify("Mic control demo hai. Real voice service abhi connect nahi hai.");
-          }}>
+          <button className="micmain" onClick={toggleMic} disabled={voiceConnecting}>
             {micOn ? <Mic /> : <MicOff />}
+            <small>{micOn ? "Mute" : "Mic"}</small>
           </button>
           <button onClick={() => setSheet("Members")}><Users /><small>Members</small></button>
           <button onClick={() => setSheet("Inbox")}><Bell /><small>Inbox</small></button>
-          <button onClick={() => setSheet("Gifts")}><Gift /><small>Gift</small></button>
+          <button onClick={() => setSheet("More")}><MoreHorizontal /><small>More</small></button>
         </div>
       )}
 
@@ -928,23 +818,29 @@ export default function App() {
               </select>
               <label className="sub">PROFILE PHOTO URL</label>
               <input className="input" placeholder="Paste image URL" value={profileEdit.photoURL || ""} onChange={(e) => setProfileEdit({ ...profileEdit, photoURL: e.target.value })} />
-              {profileEdit.photoURL && <div style={{ textAlign: "center", marginBottom: 12 }}><Avatar name={profileEdit.name} url={profileEdit.photoURL} size={75} /></div>}
-              <button className="btn" style={{ width: "100%" }} onClick={saveProfile}>Save Profile</button>
-            </>}
-
-            {sheet === "Room Settings" && <>
-              <label className="sub">ROOM NAME</label>
-              <input className="input" maxLength={50} value={roomEdit.name || ""} onChange={(e) => setRoomEdit({ ...roomEdit, name: e.target.value })} />
-              <label className="sub">ROOM COVER / DP URL</label>
-              <input className="input" placeholder="Paste image URL" value={roomEdit.coverURL || ""} onChange={(e) => setRoomEdit({ ...roomEdit, coverURL: e.target.value })} />
-              <label className="sub">ROOM BACKGROUND URL</label>
-              <input className="input" placeholder="Paste image URL" value={roomEdit.backgroundURL || ""} onChange={(e) => setRoomEdit({ ...roomEdit, backgroundURL: e.target.value })} />
-              <label className="sub">SEAT CAPACITY</label>
-              <select className="input" value={roomEdit.capacity || "20"} onChange={(e) => setRoomEdit({ ...roomEdit, capacity: e.target.value })}>
-                {CAPACITIES.map((n) => <option value={n} key={n}>{n} Seats</option>)}
-              </select>
-              <p className="sub">Capacity kam karne par occupied seats new limit ke andar honi chahiye.</p>
-              <button className="btn" style={{ width: "100%" }} onClick={saveRoom}>Save Room Settings</button>
+              <button className="btn" style={{ width: "100%" }} onClick={async () => {
+                if (!profileEdit.name?.trim()) return notify("Username likho.");
+                try {
+                  const next = {
+                    name: profileEdit.name.trim(),
+                    bio: (profileEdit.bio || "").trim(),
+                    country: profileEdit.country || "India",
+                    photoURL: (profileEdit.photoURL || "").trim()
+                  };
+                  await setDoc(doc(db, "users", user.uid), {
+                    displayName: next.name,
+                    bio: next.bio,
+                    country: next.country,
+                    photoURL: next.photoURL,
+                    updatedAt: serverTimestamp()
+                  }, { merge: true });
+                  setProfile(next);
+                  setSheet("");
+                  notify("Profile save ho gayi.");
+                } catch (error) {
+                  notify("Profile save nahi hui: " + error.message);
+                }
+              }}>Save Profile</button>
             </>}
 
             {sheet === "Members" && (
@@ -970,23 +866,14 @@ export default function App() {
               </div>
             )}
 
-            {sheet === "Gifts" && (
-              <div className="goldpanel">
-                <Gift color={GOLD} />
-                <p className="sub">Gift catalogue preview. Coin payments are not enabled.</p>
-              </div>
-            )}
-
             {sheet === "Inbox" && (
               <div className="goldpanel">
                 <Bell color={GOLD} />
-                <p className="sub">Room invitations and inbox backend abhi implement karna baaki hai.</p>
+                <p className="sub">Inbox aur invitations baad mein add honge.</p>
               </div>
             )}
 
             {sheet === "More" && <>
-              {activeRoom?.ownerId === user?.uid &&
-                <button className="listitem" onClick={openRoomEdit}>Room Settings <Settings /></button>}
               <button className="listitem" onClick={() => copyText(activeRoom?.roomCode || activeRoom?.id, "Room ID")}>Copy Room ID <Copy /></button>
               <button className="listitem" onClick={leaveRoom}>Leave Room <LogOut /></button>
             </>}
