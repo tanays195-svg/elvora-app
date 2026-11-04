@@ -91,6 +91,19 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      - name: Generate SHA-1 fingerprint
+        run: |
+          cd android
+          ./gradlew signingReport | tee signing-report.txt
+          SHA1=$(awk '/Variant: debug/{flag=1} flag && /SHA1:/{print $2; exit}' signing-report.txt)
+          if [ -z "$SHA1" ]; then
+            echo "SHA-1 fingerprint not found"
+            exit 1
+          fi
+          echo "### ELVORA Android Debug SHA-1" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$SHA1\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "SHA-1 generated successfully"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
