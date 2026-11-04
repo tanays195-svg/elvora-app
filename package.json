@@ -11,8 +11,9 @@
   "dependencies": {
     "@capacitor/android": "^7.4.3",
     "@capacitor/core": "^7.4.3",
+    "@capacitor-firebase/authentication": "7.3.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "firebase": "^11.0.1",
+    "firebase": "^11.2.0",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -22,4 +23,3 @@
     "@capacitor/cli": "^7.4.3"
   }
 }
-
