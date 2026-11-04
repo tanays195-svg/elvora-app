@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from "react";
 import App from "./App.jsx";
 import { auth } from "./firebase";
+
 import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithCredential
 } from "firebase/auth";
+
+import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 
 export default function AuthGate() {
   const [user, setUser] = useState(null);
@@ -23,10 +28,12 @@ export default function AuthGate() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    return onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
     });
+
+    return unsubscribe;
   }, []);
 
   async function handleEmail(e) {
@@ -38,14 +45,19 @@ export default function AuthGate() {
     try {
       if (signup) {
         const result = await createUserWithEmailAndPassword(
-          auth, email.trim(), password
+          auth,
+          email.trim(),
+          password
         );
+
         await updateProfile(result.user, {
           displayName: name.trim()
         });
       } else {
         await signInWithEmailAndPassword(
-          auth, email.trim(), password
+          auth,
+          email.trim(),
+          password
         );
       }
     } catch (err) {
@@ -58,24 +70,52 @@ export default function AuthGate() {
           ? "Password must be at least 6 characters."
           : err.code === "auth/invalid-credential"
           ? "Email or password is incorrect."
-          : err.message
+          : err.message || "Something went wrong."
       );
     } finally {
       setBusy(false);
     }
   }
 
-  function handleGoogle() {
+  async function handleGoogle() {
     setError("");
-    setMessage(
-      "Google native login setup is pending. Please complete Android configuration."
-    );
+    setMessage("");
+    setBusy(true);
+
+    try {
+      const result = await FirebaseAuthentication.signInWithGoogle();
+
+      const idToken = result?.credential?.idToken;
+
+      if (!idToken) {
+        throw new Error(
+          "Google ID token was not received. Check Firebase Android configuration."
+        );
+      }
+
+      const credential = GoogleAuthProvider.credential(idToken);
+
+      await signInWithCredential(auth, credential);
+
+    } catch (err) {
+      console.error("ELVORA Google Login Error:", err);
+
+      setError(
+        err.code === "auth/account-exists-with-different-credential"
+          ? "This email is already registered with another login method."
+          : err.code === "auth/popup-closed-by-user"
+          ? "Google sign-in was cancelled."
+          : err.message || "Google sign-in failed. Please try again."
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   function handlePhone() {
     setError("");
     setMessage(
-      "Phone OTP native verification setup is pending. Please complete Android configuration."
+      "Phone OTP is not connected yet. Please use Google or Email for now."
     );
   }
 
@@ -88,32 +128,41 @@ export default function AuthGate() {
     );
   }
 
-  if (user) return <App />;
+  if (user) {
+    return <App />;
+  }
 
   return (
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.logo}>E</div>
+
         <h1 style={styles.title}>ELVORA</h1>
+
         <p style={styles.subtitle}>
           Your voice. Your community.
         </p>
 
-        <h2 style={styles.heading}>Welcome to ELVORA</h2>
+        <h2 style={styles.heading}>
+          Welcome to ELVORA
+        </h2>
+
         <p style={styles.description}>
           Choose how you want to continue
         </p>
 
         <button
+          type="button"
           style={styles.googleButton}
           onClick={handleGoogle}
           disabled={busy}
         >
           <span style={styles.googleIcon}>G</span>
-          Continue with Google
+          {busy ? "Please wait..." : "Continue with Google"}
         </button>
 
         <button
+          type="button"
           style={styles.optionButton}
           onClick={() => {
             setMethod("email");
@@ -125,6 +174,7 @@ export default function AuthGate() {
         </button>
 
         <button
+          type="button"
           style={styles.optionButton}
           onClick={() => {
             setMethod("phone");
@@ -188,7 +238,9 @@ export default function AuthGate() {
               {signup
                 ? "Already have an account?"
                 : "New to ELVORA?"}
+
               <button
+                type="button"
                 style={styles.switchButton}
                 onClick={() => {
                   setSignup(!signup);
@@ -204,7 +256,10 @@ export default function AuthGate() {
 
         {method === "phone" && (
           <>
-            <h3 style={styles.sectionTitle}>Phone Verification</h3>
+            <h3 style={styles.sectionTitle}>
+              Phone Verification
+            </h3>
+
             <input
               style={styles.input}
               type="tel"
@@ -212,12 +267,16 @@ export default function AuthGate() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
+
             <button
+              type="button"
               style={styles.mainButton}
               onClick={handlePhone}
+              disabled={busy}
             >
               Send OTP
             </button>
+
             <input
               style={styles.input}
               placeholder="Enter OTP"
@@ -225,17 +284,29 @@ export default function AuthGate() {
               onChange={(e) => setOtp(e.target.value)}
               inputMode="numeric"
             />
+
             <button
+              type="button"
               style={styles.mainButton}
               onClick={handlePhone}
+              disabled={busy}
             >
               Verify OTP
             </button>
           </>
         )}
 
-        {error && <p style={styles.error}>{error}</p>}
-        {message && <p style={styles.message}>{message}</p>}
+        {error && (
+          <p style={styles.error}>
+            {error}
+          </p>
+        )}
+
+        {message && (
+          <p style={styles.message}>
+            {message}
+          </p>
+        )}
 
         <p style={styles.footer}>
           By continuing, you agree to ELVORA's Terms and Privacy Policy.
@@ -257,6 +328,7 @@ const styles = {
     color: "white",
     fontFamily: "Arial, sans-serif"
   },
+
   card: {
     width: "100%",
     maxWidth: "390px",
@@ -267,6 +339,7 @@ const styles = {
     boxSizing: "border-box",
     textAlign: "center"
   },
+
   logo: {
     width: "62px",
     height: "62px",
@@ -278,29 +351,35 @@ const styles = {
     fontSize: "34px",
     fontWeight: "bold"
   },
+
   title: {
     fontSize: "30px",
     letterSpacing: "5px",
     margin: "15px 0 5px"
   },
+
   subtitle: {
     color: "#b8a9d5",
     fontSize: "13px",
     marginBottom: "25px"
   },
+
   heading: {
     fontSize: "22px",
     marginBottom: "5px"
   },
+
   description: {
     color: "#b8a9d5",
     fontSize: "13px",
     marginBottom: "20px"
   },
+
   sectionTitle: {
     fontSize: "17px",
     marginTop: "25px"
   },
+
   input: {
     width: "100%",
     padding: "15px",
@@ -313,6 +392,7 @@ const styles = {
     boxSizing: "border-box",
     outline: "none"
   },
+
   googleButton: {
     width: "100%",
     padding: "14px",
@@ -322,13 +402,16 @@ const styles = {
     background: "#ffffff",
     color: "#252033",
     fontSize: "15px",
-    fontWeight: "bold"
+    fontWeight: "bold",
+    cursor: "pointer"
   },
+
   googleIcon: {
     fontWeight: "bold",
     color: "#4285F4",
     marginRight: "12px"
   },
+
   optionButton: {
     width: "100%",
     padding: "14px",
@@ -338,8 +421,10 @@ const styles = {
     background: "#251b3d",
     color: "white",
     fontSize: "15px",
-    fontWeight: "bold"
+    fontWeight: "bold",
+    cursor: "pointer"
   },
+
   mainButton: {
     width: "100%",
     padding: "15px",
@@ -349,36 +434,44 @@ const styles = {
     background: "linear-gradient(90deg, #9333ea, #6d28d9)",
     color: "white",
     fontSize: "16px",
-    fontWeight: "bold"
+    fontWeight: "bold",
+    cursor: "pointer"
   },
+
   switchText: {
     color: "#b8a9d5",
     fontSize: "14px",
     marginTop: "20px"
   },
+
   switchButton: {
     background: "none",
     border: "none",
     color: "#c084fc",
     fontWeight: "bold",
-    fontSize: "14px"
+    fontSize: "14px",
+    cursor: "pointer"
   },
+
   error: {
     color: "#ff8585",
     fontSize: "13px",
     marginTop: "15px"
   },
+
   message: {
     color: "#ffd27d",
     fontSize: "13px",
     marginTop: "15px"
   },
+
   footer: {
     color: "#8f83a8",
     fontSize: "11px",
     marginTop: "25px",
     lineHeight: 1.5
   },
+
   loading: {
     minHeight: "100vh",
     background: "#090817",
