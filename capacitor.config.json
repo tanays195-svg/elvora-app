@@ -5,10 +5,7 @@
   "bundledWebRuntime": false,
   "plugins": {
     "FirebaseAuthentication": {
-      "providers": [
-        "google.com",
-        "phone"
-      ]
+      "providers": ["google.com", "phone"]
     }
   }
 }
