@@ -1,0 +1,6 @@
+{
+  "appId": "com.elvora.app",
+  "appName": "ELVORA",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
