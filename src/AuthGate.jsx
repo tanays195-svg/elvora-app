@@ -11,12 +11,16 @@ import {
 export default function AuthGate() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [method, setMethod] = useState("email");
   const [signup, setSignup] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
@@ -25,9 +29,10 @@ export default function AuthGate() {
     });
   }, []);
 
-  async function handleSubmit(e) {
+  async function handleEmail(e) {
     e.preventDefault();
     setError("");
+    setMessage("");
     setBusy(true);
 
     try {
@@ -35,7 +40,6 @@ export default function AuthGate() {
         const result = await createUserWithEmailAndPassword(
           auth, email.trim(), password
         );
-
         await updateProfile(result.user, {
           displayName: name.trim()
         });
@@ -49,7 +53,7 @@ export default function AuthGate() {
         err.code === "auth/email-already-in-use"
           ? "This email is already registered."
           : err.code === "auth/invalid-email"
-          ? "Please enter a valid email."
+          ? "Enter a valid email address."
           : err.code === "auth/weak-password"
           ? "Password must be at least 6 characters."
           : err.code === "auth/invalid-credential"
@@ -59,6 +63,20 @@ export default function AuthGate() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleGoogle() {
+    setError("");
+    setMessage(
+      "Google native login setup is pending. Please complete Android configuration."
+    );
+  }
+
+  function handlePhone() {
+    setError("");
+    setMessage(
+      "Phone OTP native verification setup is pending. Please complete Android configuration."
+    );
   }
 
   if (loading) {
@@ -81,68 +99,146 @@ export default function AuthGate() {
           Your voice. Your community.
         </p>
 
-        <h2 style={styles.heading}>
-          {signup ? "Create Account" : "Welcome Back"}
-        </h2>
+        <h2 style={styles.heading}>Welcome to ELVORA</h2>
+        <p style={styles.description}>
+          Choose how you want to continue
+        </p>
 
-        <form onSubmit={handleSubmit}>
-          {signup && (
+        <button
+          style={styles.googleButton}
+          onClick={handleGoogle}
+          disabled={busy}
+        >
+          <span style={styles.googleIcon}>G</span>
+          Continue with Google
+        </button>
+
+        <button
+          style={styles.optionButton}
+          onClick={() => {
+            setMethod("email");
+            setError("");
+            setMessage("");
+          }}
+        >
+          ✉ Continue with Email
+        </button>
+
+        <button
+          style={styles.optionButton}
+          onClick={() => {
+            setMethod("phone");
+            setError("");
+            setMessage("");
+          }}
+        >
+          ☎ Continue with Phone
+        </button>
+
+        {method === "email" && (
+          <>
+            <h3 style={styles.sectionTitle}>
+              {signup ? "Create Account" : "Email Login"}
+            </h3>
+
+            <form onSubmit={handleEmail}>
+              {signup && (
+                <input
+                  style={styles.input}
+                  placeholder="Your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              )}
+
+              <input
+                style={styles.input}
+                type="email"
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+
+              <input
+                style={styles.input}
+                type="password"
+                placeholder="Password (minimum 6 characters)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={6}
+                required
+              />
+
+              <button
+                style={styles.mainButton}
+                type="submit"
+                disabled={busy}
+              >
+                {busy
+                  ? "Please wait..."
+                  : signup
+                  ? "Create Account"
+                  : "Login with Email"}
+              </button>
+            </form>
+
+            <p style={styles.switchText}>
+              {signup
+                ? "Already have an account?"
+                : "New to ELVORA?"}
+              <button
+                style={styles.switchButton}
+                onClick={() => {
+                  setSignup(!signup);
+                  setError("");
+                  setMessage("");
+                }}
+              >
+                {signup ? " Login" : " Sign Up"}
+              </button>
+            </p>
+          </>
+        )}
+
+        {method === "phone" && (
+          <>
+            <h3 style={styles.sectionTitle}>Phone Verification</h3>
             <input
               style={styles.input}
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
+              type="tel"
+              placeholder="+91 Mobile number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
             />
-          )}
+            <button
+              style={styles.mainButton}
+              onClick={handlePhone}
+            >
+              Send OTP
+            </button>
+            <input
+              style={styles.input}
+              placeholder="Enter OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              inputMode="numeric"
+            />
+            <button
+              style={styles.mainButton}
+              onClick={handlePhone}
+            >
+              Verify OTP
+            </button>
+          </>
+        )}
 
-          <input
-            style={styles.input}
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+        {error && <p style={styles.error}>{error}</p>}
+        {message && <p style={styles.message}>{message}</p>}
 
-          <input
-            style={styles.input}
-            type="password"
-            placeholder="Password (minimum 6 characters)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={6}
-            required
-          />
-
-          {error && <p style={styles.error}>{error}</p>}
-
-          <button
-            style={styles.button}
-            type="submit"
-            disabled={busy}
-          >
-            {busy
-              ? "Please wait..."
-              : signup
-              ? "Create Account"
-              : "Login"}
-          </button>
-        </form>
-
-        <p style={styles.switchText}>
-          {signup
-            ? "Already have an account?"
-            : "New to ELVORA?"}
-          <button
-            style={styles.switchButton}
-            onClick={() => {
-              setSignup(!signup);
-              setError("");
-            }}
-          >
-            {signup ? " Login" : " Sign Up"}
-          </button>
+        <p style={styles.footer}>
+          By continuing, you agree to ELVORA's Terms and Privacy Policy.
         </p>
       </div>
     </div>
@@ -190,11 +286,20 @@ const styles = {
   subtitle: {
     color: "#b8a9d5",
     fontSize: "13px",
-    marginBottom: "32px"
+    marginBottom: "25px"
   },
   heading: {
     fontSize: "22px",
-    marginBottom: "22px"
+    marginBottom: "5px"
+  },
+  description: {
+    color: "#b8a9d5",
+    fontSize: "13px",
+    marginBottom: "20px"
+  },
+  sectionTitle: {
+    fontSize: "17px",
+    marginTop: "25px"
   },
   input: {
     width: "100%",
@@ -208,7 +313,34 @@ const styles = {
     boxSizing: "border-box",
     outline: "none"
   },
-  button: {
+  googleButton: {
+    width: "100%",
+    padding: "14px",
+    marginBottom: "12px",
+    border: "1px solid #71618c",
+    borderRadius: "12px",
+    background: "#ffffff",
+    color: "#252033",
+    fontSize: "15px",
+    fontWeight: "bold"
+  },
+  googleIcon: {
+    fontWeight: "bold",
+    color: "#4285F4",
+    marginRight: "12px"
+  },
+  optionButton: {
+    width: "100%",
+    padding: "14px",
+    marginBottom: "12px",
+    border: "1px solid #71549b",
+    borderRadius: "12px",
+    background: "#251b3d",
+    color: "white",
+    fontSize: "15px",
+    fontWeight: "bold"
+  },
+  mainButton: {
     width: "100%",
     padding: "15px",
     marginTop: "8px",
@@ -217,18 +349,12 @@ const styles = {
     background: "linear-gradient(90deg, #9333ea, #6d28d9)",
     color: "white",
     fontSize: "16px",
-    fontWeight: "bold",
-    cursor: "pointer"
-  },
-  error: {
-    color: "#ff8585",
-    fontSize: "13px",
-    textAlign: "left"
+    fontWeight: "bold"
   },
   switchText: {
     color: "#b8a9d5",
     fontSize: "14px",
-    marginTop: "24px"
+    marginTop: "20px"
   },
   switchButton: {
     background: "none",
@@ -236,6 +362,22 @@ const styles = {
     color: "#c084fc",
     fontWeight: "bold",
     fontSize: "14px"
+  },
+  error: {
+    color: "#ff8585",
+    fontSize: "13px",
+    marginTop: "15px"
+  },
+  message: {
+    color: "#ffd27d",
+    fontSize: "13px",
+    marginTop: "15px"
+  },
+  footer: {
+    color: "#8f83a8",
+    fontSize: "11px",
+    marginTop: "25px",
+    lineHeight: 1.5
   },
   loading: {
     minHeight: "100vh",
