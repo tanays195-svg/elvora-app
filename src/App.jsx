@@ -14,12 +14,12 @@ import {
   Settings, Wallet, Crown, Trophy, Heart, ChevronRight,
   ArrowLeft, Send, Bell, Volume2, VolumeX, Share2,
   MoreHorizontal, Search, X, ShieldCheck, LogOut,
-  Headphones, Sparkles, Globe, Smile, Copy, Gem, Radio,
-  Check, XCircle, Pencil, UserCheck, UserX, Lock
+  Headphones, Sparkles, Smile, Copy, Gem,
+  Check, XCircle, Pencil, UserCheck
 } from "lucide-react";
 
 const GOLD = "#f5ce78";
-const CAPACITIES = [2, 10, 15, 20];
+const CAPACITIES = [2, 8, 10, 15, 20];
 
 const css = `
 *{box-sizing:border-box}
@@ -39,6 +39,7 @@ button{cursor:pointer}
 .between{display:flex;align-items:center;justify-content:space-between;gap:9px}
 .goldpanel{padding:15px;margin:12px 0;border-radius:17px;border:1px solid #d09b4e;background:linear-gradient(145deg,#65330e,#301504 60%,#170900);box-shadow:inset 0 0 0 2px #58300f,0 5px 17px #0009}
 .btn{border:1px solid #ffe3a3;border-radius:30px;padding:11px 17px;background:linear-gradient(110deg,#ffe9a8,#d59a3d,#995018);color:#291304;font-weight:900;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
 .btn2{border:1px solid #bd8743;border-radius:25px;padding:9px 13px;background:linear-gradient(120deg,#54290d,#1d0b03);color:#ffe2a0;font-size:11px}
 .round{width:38px;height:38px;border-radius:50%;border:1px solid #d4a45c;background:radial-gradient(#77431b,#1a0b03);color:#ffe5a8;display:grid;place-items:center;flex-shrink:0}
 .input{width:100%;padding:12px;border:1px solid #a9793e;border-radius:10px;background:#1c0c04;color:white;margin:6px 0 13px;outline:none}
@@ -55,7 +56,7 @@ button{cursor:pointer}
 .roomcard{border:1px solid #d4a35b;border-radius:14px;padding:7px;background:linear-gradient(145deg,#63300e,#1c0b03);min-width:0}
 .cover{height:100px;border-radius:9px;background:radial-gradient(circle,#a56a2c,#351605);display:grid;place-items:center;overflow:hidden;color:#ffe3a3}
 .cover img{width:100%;height:100%;object-fit:cover}
-.roompage{padding:12px 12px 105px;min-height:calc(100dvh - 66px);background:radial-gradient(ellipse at top,#633812,#291306 48%,#100700)}
+.roompage{padding:12px 12px 105px;min-height:calc(100dvh - 66px);background-color:#291306;background-image:radial-gradient(ellipse at top,#633812,#291306 48%,#100700);background-size:cover;background-position:center}
 .roomhead{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:15px}
 .roomidentity{display:flex;align-items:center;gap:10px;margin:12px 0}
 .roomname{font-weight:900;font-size:15px;color:#ffe3a0}
@@ -87,6 +88,7 @@ button{cursor:pointer}
 .footer .input{flex:1;min-width:0;margin:7px 0}
 .toast{position:fixed;z-index:60;top:74px;left:50%;transform:translateX(-50%);max-width:90%;padding:11px 15px;border:1px solid #e5b86c;border-radius:10px;background:#3c1d0a;color:white;font-size:11px}
 .empty{text-align:center;padding:30px 12px;color:#d9bd91}
+.preview{width:100%;max-height:150px;object-fit:cover;border:1px solid #d5a75f;border-radius:12px;margin:4px 0 12px}
 @media(max-width:370px){.seatcircle{width:42px;height:42px}.seats{gap:14px 1px}}
 `;
 
@@ -97,13 +99,16 @@ function numericId(value) {
 }
 
 function Avatar({ name = "U", url = "", size = 46 }) {
-  return <div className="avatar" style={{ width: size, height: size }}>
-    {url ? <img src={url} alt="Profile" /> : String(name).slice(0, 1).toUpperCase()}
-  </div>;
+  return (
+    <div className="avatar" style={{ width: size, height: size }}>
+      {url ? <img src={url} alt="Profile" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : String(name).slice(0, 1).toUpperCase()}
+    </div>
+  );
 }
 
 export default function App() {
   const user = auth.currentUser;
+
   const [tab, setTab] = useState("Room");
   const [screen, setScreen] = useState("");
   const [rooms, setRooms] = useState([]);
@@ -113,13 +118,18 @@ export default function App() {
   const [activeRoom, setActiveRoom] = useState(null);
   const [liveKitRoom, setLiveKitRoom] = useState(null);
   const [voiceConnecting, setVoiceConnecting] = useState(false);
+
   const [profile, setProfile] = useState({
     name: user?.displayName || user?.email?.split("@")[0] || "Member",
-    bio: "Welcome to ELVORA", country: "India", photoURL: user?.photoURL || ""
+    bio: "Welcome to ELVORA",
+    country: "India",
+    photoURL: user?.photoURL || ""
   });
+
   const [profileEdit, setProfileEdit] = useState({});
+  const [roomEdit, setRoomEdit] = useState({});
   const [roomName, setRoomName] = useState("");
-  const [capacity, setCapacity] = useState("20");
+  const [capacity, setCapacity] = useState("8");
   const [privacy, setPrivacy] = useState("public");
   const [search, setSearch] = useState("");
   const [chatText, setChatText] = useState("");
@@ -142,25 +152,35 @@ export default function App() {
     window.__elvoraToast = window.setTimeout(() => setNotice(""), 3500);
   };
 
-  const filteredRooms = useMemo(() => rooms.filter((r) =>
-    r.privacy === "public" && (r.name || "").toLowerCase().includes(search.toLowerCase())
-  ), [rooms, search]);
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((r) =>
+      r.privacy === "public" &&
+      (r.name || "").toLowerCase().includes(search.toLowerCase())
+    );
+  }, [rooms, search]);
 
   useEffect(() => {
     if (!user) return;
-    return onSnapshot(query(collection(db, "rooms"), orderBy("createdAt", "desc"), limit(60)),
+
+    return onSnapshot(
+      query(collection(db, "rooms"), orderBy("createdAt", "desc"), limit(60)),
       (s) => setRooms(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      (e) => notify("Rooms load error: " + e.message));
+      (e) => notify("Rooms load error: " + e.message)
+    );
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
+
     return onSnapshot(doc(db, "users", user.uid), (s) => {
       if (s.exists()) {
         const d = s.data();
         setProfile((p) => ({
-          ...p, name: d.displayName || p.name, bio: d.bio ?? p.bio,
-          country: d.country || p.country, photoURL: d.photoURL ?? p.photoURL
+          ...p,
+          name: d.displayName || p.name,
+          bio: d.bio ?? p.bio,
+          country: d.country || p.country,
+          photoURL: d.photoURL ?? p.photoURL
         }));
       }
     });
@@ -168,33 +188,57 @@ export default function App() {
 
   useEffect(() => {
     if (!activeRoom || !user) return;
+
     const path = `rooms/${activeRoom.id}`;
-    const stopMembers = onSnapshot(collection(db, path, "members"),
+
+    const stopMembers = onSnapshot(
+      collection(db, path, "members"),
       (s) => setMembers(s.docs.map((d) => d.data())),
-      (e) => notify("Members error: " + e.message));
-    const stopRequests = onSnapshot(collection(db, path, "requests"),
+      (e) => notify("Members error: " + e.message)
+    );
+
+    const stopRequests = onSnapshot(
+      collection(db, path, "requests"),
       (s) => setRequests(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      (e) => notify("Requests error: " + e.message));
-    const stopMessages = onSnapshot(query(collection(db, path, "messages"), orderBy("createdAt", "asc"), limit(100)),
+      (e) => notify("Requests error: " + e.message)
+    );
+
+    const stopMessages = onSnapshot(
+      query(collection(db, path, "messages"), orderBy("createdAt", "asc"), limit(100)),
       (s) => setMessages(s.docs.map((d) => d.data())),
-      (e) => notify("Chat error: " + e.message));
-    return () => { stopMembers(); stopRequests(); stopMessages(); };
+      (e) => notify("Chat error: " + e.message)
+    );
+
+    return () => {
+      stopMembers();
+      stopRequests();
+      stopMessages();
+    };
   }, [activeRoom, user]);
 
   useEffect(() => {
     if (!liveKitRoom) return;
+
     const attached = new Set();
+
     const onTrack = (track) => {
       if (track.kind !== "audio") return;
       const el = track.attach();
-      el.autoplay = true; el.playsInline = true; el.style.display = "none";
-      document.body.appendChild(el); attached.add(track);
+      el.autoplay = true;
+      el.playsInline = true;
+      el.style.display = "none";
+      document.body.appendChild(el);
+      attached.add(track);
     };
+
     const onUntrack = (track) => {
-      track.detach().forEach((el) => el.remove()); attached.delete(track);
+      track.detach().forEach((el) => el.remove());
+      attached.delete(track);
     };
+
     liveKitRoom.on("trackSubscribed", onTrack);
     liveKitRoom.on("trackUnsubscribed", onUntrack);
+
     return () => {
       liveKitRoom.off("trackSubscribed", onTrack);
       liveKitRoom.off("trackUnsubscribed", onUntrack);
@@ -202,216 +246,394 @@ export default function App() {
     };
   }, [liveKitRoom]);
 
+  useEffect(() => {
+    if (!messageEnd) return;
+    messageEnd.scrollIntoView?.({ behavior: "smooth" });
+  }, [messages, messageEnd]);
+
   const connectVoice = async (room) => {
     if (liveKitRoom || voiceConnecting) return;
+
     setVoiceConnecting(true);
+
     try {
       const connection = await connectToLiveKitRoom({
         roomName: `elvora-${room.id}`,
         participantName: profile.name || "ELVORA Member"
       });
+
       setLiveKitRoom(connection);
       setMicOn(false);
       notify("Voice connected. Microphone OFF hai.");
     } catch (e) {
       notify("Voice connection error: " + (e.message || "Retry karo."));
-    } finally { setVoiceConnecting(false); }
+    } finally {
+      setVoiceConnecting(false);
+    }
   };
 
   const joinRoom = async (room) => {
     if (!user) return notify("Pehle login karo.");
-    if (room.privacy === "private" && room.ownerId !== user.uid)
+
+    if (room.privacy === "private" && room.ownerId !== user.uid) {
       return notify("Private room mein invitation zaroori hai; invite feature abhi pending hai.");
+    }
+
     try {
       await runTransaction(db, async (tx) => {
-        const rr = doc(db, "rooms", room.id);
-        const mr = doc(db, "rooms", room.id, "members", user.uid);
-        const rs = await tx.get(rr);
-        if (!rs.exists()) throw new Error("Room nahi mila.");
-        const ms = await tx.get(mr);
-        if (ms.exists()) return;
-        tx.set(mr, {
-          uid: user.uid, name: profile.name, photoURL: profile.photoURL || "",
-          role: rs.data().ownerId === user.uid ? "owner" : "audience",
-          seat: null, joinedAt: serverTimestamp()
+        const roomRef = doc(db, "rooms", room.id);
+        const memberRef = doc(db, "rooms", room.id, "members", user.uid);
+
+        const roomSnap = await tx.get(roomRef);
+        if (!roomSnap.exists()) throw new Error("Room nahi mila.");
+
+        const memberSnap = await tx.get(memberRef);
+        if (memberSnap.exists()) return;
+
+        tx.set(memberRef, {
+          uid: user.uid,
+          name: profile.name,
+          photoURL: profile.photoURL || "",
+          role: roomSnap.data().ownerId === user.uid ? "owner" : "audience",
+          seat: null,
+          joinedAt: serverTimestamp()
         });
       });
+
       setActiveRoom(room);
       setMessages([]);
       setScreen("LiveRoom");
       setTab("Room");
       await connectVoice(room);
-    } catch (e) { notify(e.message || "Join nahi hua."); }
+    } catch (e) {
+      notify(e.message || "Join nahi hua.");
+    }
   };
 
   const createRoom = async () => {
     if (!user) return notify("Pehle login karo.");
     if (!roomName.trim()) return notify("Room ka naam likho.");
+
     try {
+      const newName = roomName.trim();
       const code = "ELV-" + Math.floor(100000 + Math.random() * 900000);
+
       const ref = await addDoc(collection(db, "rooms"), {
-        name: roomName.trim(), roomCode: code, category: "Global",
-        capacity: Number(capacity), ownerId: user.uid, ownerName: profile.name,
-        privacy, coverURL: "", backgroundURL: "", createdAt: serverTimestamp()
+        name: newName,
+        roomCode: code,
+        category: "Global",
+        capacity: Number(capacity),
+        ownerId: user.uid,
+        ownerName: profile.name,
+        privacy,
+        coverURL: "",
+        backgroundURL: "",
+        createdAt: serverTimestamp()
       });
-      setRoomName(""); setScreen("");
+
+      setRoomName("");
+      setScreen("");
+
       await joinRoom({
-        id: ref.id, name: roomName.trim(), roomCode: code,
-        capacity: Number(capacity), ownerId: user.uid, ownerName: profile.name,
-        privacy, coverURL: ""
+        id: ref.id,
+        name: newName,
+        roomCode: code,
+        capacity: Number(capacity),
+        ownerId: user.uid,
+        ownerName: profile.name,
+        privacy,
+        coverURL: "",
+        backgroundURL: ""
       });
+
       notify("Room create ho gaya.");
-    } catch (e) { notify("Room create error: " + e.message); }
+    } catch (e) {
+      notify("Room create error: " + e.message);
+    }
   };
 
   const leaveRoom = async () => {
     if (!activeRoom || !user) return;
+
     try {
       if (liveKitRoom) await disconnectFromLiveKitRoom(liveKitRoom);
-      setLiveKitRoom(null); setMicOn(false);
+
+      setLiveKitRoom(null);
+      setMicOn(false);
+
       const memberRef = doc(db, "rooms", activeRoom.id, "members", user.uid);
       const member = members.find((m) => m.uid === user.uid);
+
       if (member?.seat) {
-        const seatRef = doc(db, "rooms", activeRoom.id, "seats", String(member.seat));
-        await deleteDoc(seatRef);
+        await deleteDoc(doc(db, "rooms", activeRoom.id, "seats", String(member.seat)));
       }
+
       await deleteDoc(memberRef);
       await deleteDoc(doc(db, "rooms", activeRoom.id, "requests", user.uid));
-    } catch (e) { notify("Leave error: " + e.message); }
-    setActiveRoom(null); setMembers([]); setRequests([]); setMessages([]); setScreen("");
+    } catch (e) {
+      notify("Leave error: " + e.message);
+    }
+
+    setActiveRoom(null);
+    setMembers([]);
+    setRequests([]);
+    setMessages([]);
+    setScreen("");
+    setSheet("");
   };
 
   const requestToSpeak = async () => {
     if (!activeRoom || !user) return;
     if (isSpeaker) return notify("Tum already stage par ho.");
+
     try {
       await setDoc(doc(db, "rooms", activeRoom.id, "requests", user.uid), {
-        uid: user.uid, name: profile.name, photoURL: profile.photoURL || "",
-        status: "pending", createdAt: serverTimestamp()
+        uid: user.uid,
+        name: profile.name,
+        photoURL: profile.photoURL || "",
+        status: "pending",
+        createdAt: serverTimestamp()
       });
+
       notify("Speak request owner ko bhej di.");
-    } catch (e) { notify("Request send error: " + e.message); }
+    } catch (e) {
+      notify("Request send error: " + e.message);
+    }
   };
 
   const approveRequest = async (request) => {
     if (!isModerator) return notify("Sirf owner/moderator approve kar sakte hain.");
+
     try {
       await runTransaction(db, async (tx) => {
         const roomRef = doc(db, "rooms", activeRoom.id);
         const reqRef = doc(db, "rooms", activeRoom.id, "requests", request.uid);
         const memberRef = doc(db, "rooms", activeRoom.id, "members", request.uid);
+
         const roomSnap = await tx.get(roomRef);
         const reqSnap = await tx.get(reqRef);
         const memberSnap = await tx.get(memberRef);
-        if (!roomSnap.exists() || !reqSnap.exists() || !memberSnap.exists())
+
+        if (!roomSnap.exists() || !reqSnap.exists() || !memberSnap.exists()) {
           throw new Error("Request/member nahi mila.");
-        const cap = Number(roomSnap.data().capacity) || 20;
+        }
+
+        const cap = Number(roomSnap.data().capacity) || 8;
         const seatRefs = Array.from({ length: cap }, (_, i) =>
-          doc(db, "rooms", activeRoom.id, "seats", String(i + 1)));
+          doc(db, "rooms", activeRoom.id, "seats", String(i + 1))
+        );
+
         const seatSnaps = [];
         for (const ref of seatRefs) seatSnaps.push(await tx.get(ref));
+
         const free = seatSnaps.findIndex((s) => !s.exists());
         if (free < 0) throw new Error("Stage full hai.");
+
         tx.update(memberRef, { role: "speaker", seat: free + 1 });
         tx.set(seatRefs[free], { uid: request.uid, name: request.name });
         tx.delete(reqRef);
       });
+
       notify("Request approve ho gayi.");
-    } catch (e) { notify("Approve error: " + e.message); }
+    } catch (e) {
+      notify("Approve error: " + e.message);
+    }
   };
 
   const rejectRequest = async (request) => {
     if (!isModerator) return;
+
     try {
       await deleteDoc(doc(db, "rooms", activeRoom.id, "requests", request.uid));
       notify("Request reject kar di.");
-    } catch (e) { notify("Reject error: " + e.message); }
+    } catch (e) {
+      notify("Reject error: " + e.message);
+    }
   };
 
   const removeFromStage = async (member) => {
     if (!isModerator) return;
     if (member.uid === activeRoom.ownerId) return notify("Owner ko stage se remove nahi kar sakte.");
+
     try {
-      if (member.seat) await deleteDoc(doc(db, "rooms", activeRoom.id, "seats", String(member.seat)));
+      if (member.seat) {
+        await deleteDoc(doc(db, "rooms", activeRoom.id, "seats", String(member.seat)));
+      }
+
       await updateDoc(doc(db, "rooms", activeRoom.id, "members", member.uid), {
-        role: "audience", seat: null
+        role: "audience",
+        seat: null
       });
+
       notify("Member audience mein move ho gaya.");
-    } catch (e) { notify("Action error: " + e.message); }
+    } catch (e) {
+      notify("Action error: " + e.message);
+    }
   };
 
   const makeModerator = async (member) => {
     if (!isOwner || member.uid === user.uid) return;
+
     try {
       await updateDoc(doc(db, "rooms", activeRoom.id, "members", member.uid), {
         role: member.role === "moderator" ? "audience" : "moderator"
       });
+
       notify(member.role === "moderator" ? "Moderator role removed." : "Moderator bana diya.");
-    } catch (e) { notify("Moderator update error: " + e.message); }
+    } catch (e) {
+      notify("Moderator update error: " + e.message);
+    }
   };
 
   const toggleMic = async () => {
     if (!liveKitRoom) return notify("Voice connection nahi hai.");
     if (!isSpeaker) return notify("Mic use karne ke liye stage par aao.");
+
     try {
-      if (micOn) { await disableRoomMicrophone(liveKitRoom); setMicOn(false); notify("Mic muted."); }
-      else { await enableRoomMicrophone(liveKitRoom); setMicOn(true); notify("Mic ON."); }
-    } catch (e) { setMicOn(false); notify("Mic error: " + e.message); }
+      if (micOn) {
+        await disableRoomMicrophone(liveKitRoom);
+        setMicOn(false);
+        notify("Mic muted.");
+      } else {
+        await enableRoomMicrophone(liveKitRoom);
+        setMicOn(true);
+        notify("Mic ON.");
+      }
+    } catch (e) {
+      setMicOn(false);
+      notify("Mic error: " + e.message);
+    }
   };
 
   const toggleSpeaker = async () => {
     if (!liveKitRoom) return;
+
     try {
       const next = !speakerOn;
+
       liveKitRoom.remoteParticipants.forEach((p) => {
         p.trackPublications.forEach((pub) => {
-          if (pub.track?.kind === "audio") pub.track.setVolume(next ? 1 : 0);
+          if (pub.track?.kind === "audio") {
+            pub.track.setVolume(next ? 1 : 0);
+          }
         });
       });
+
       setSpeakerOn(next);
-    } catch (e) { notify("Audio setting error: " + e.message); }
+    } catch (e) {
+      notify("Audio setting error: " + e.message);
+    }
   };
 
   const sendMessage = async () => {
     const text = chatText.trim();
     if (!text || !activeRoom || !user) return;
+
     try {
       await addDoc(collection(db, "rooms", activeRoom.id, "messages"), {
-        text, senderId: user.uid, senderName: profile.name,
+        text,
+        senderId: user.uid,
+        senderName: profile.name,
         createdAt: serverTimestamp()
       });
+
       setChatText("");
-    } catch (e) { notify("Message error: " + e.message); }
+    } catch (e) {
+      notify("Message error: " + e.message);
+    }
   };
 
   const saveProfile = async () => {
     if (!profileEdit.name?.trim()) return notify("Username likho.");
+
     try {
       const next = {
-        name: profileEdit.name.trim(), bio: (profileEdit.bio || "").trim(),
-        country: profileEdit.country || "India", photoURL: (profileEdit.photoURL || "").trim()
+        name: profileEdit.name.trim(),
+        bio: (profileEdit.bio || "").trim(),
+        country: profileEdit.country || "India",
+        photoURL: (profileEdit.photoURL || "").trim()
       };
+
       await setDoc(doc(db, "users", user.uid), {
-        displayName: next.name, bio: next.bio, country: next.country,
-        photoURL: next.photoURL, updatedAt: serverTimestamp()
+        displayName: next.name,
+        bio: next.bio,
+        country: next.country,
+        photoURL: next.photoURL,
+        updatedAt: serverTimestamp()
       }, { merge: true });
-      setProfile(next); setSheet(""); notify("Profile save ho gayi.");
-    } catch (e) { notify("Profile error: " + e.message); }
+
+      setProfile(next);
+      setSheet("");
+      notify("Profile save ho gayi.");
+    } catch (e) {
+      notify("Profile error: " + e.message);
+    }
   };
 
   const openProfileEdit = () => {
-    setProfileEdit({ name: profile.name, bio: profile.bio, country: profile.country, photoURL: profile.photoURL });
+    setProfileEdit({
+      name: profile.name,
+      bio: profile.bio,
+      country: profile.country,
+      photoURL: profile.photoURL
+    });
+
     setSheet("Edit Profile");
   };
 
+  const openRoomEdit = () => {
+    if (!isOwner || !activeRoom) return;
+
+    setRoomEdit({
+      name: activeRoom.name || "",
+      coverURL: activeRoom.coverURL || "",
+      backgroundURL: activeRoom.backgroundURL || ""
+    });
+
+    setSheet("Edit Room");
+  };
+
+  const saveRoom = async () => {
+    if (!isOwner || !activeRoom) return;
+    if (!roomEdit.name?.trim()) return notify("Room name likho.");
+
+    try {
+      const updated = {
+        name: roomEdit.name.trim(),
+        coverURL: (roomEdit.coverURL || "").trim(),
+        backgroundURL: (roomEdit.backgroundURL || "").trim(),
+        updatedAt: serverTimestamp()
+      };
+
+      await updateDoc(doc(db, "rooms", activeRoom.id), updated);
+
+      setActiveRoom((prev) => ({
+        ...prev,
+        name: updated.name,
+        coverURL: updated.coverURL,
+        backgroundURL: updated.backgroundURL
+      }));
+
+      setSheet("");
+      notify("Room update ho gaya.");
+    } catch (e) {
+      notify("Room update error: " + e.message);
+    }
+  };
+
   const copyText = async (text, label) => {
-    try { await navigator.clipboard.writeText(String(text || "")); notify(label + " copied."); }
-    catch { notify("Copy nahi hua: " + text); }
+    try {
+      await navigator.clipboard.writeText(String(text || ""));
+      notify(label + " copied.");
+    } catch {
+      notify("Copy nahi hua: " + text);
+    }
   };
 
   const Header = ({ title, back = false }) => (
     <header className="top">
-      {back ? <button className="round" onClick={() => setScreen("")}><ArrowLeft /></button>
+      {back
+        ? <button className="round" onClick={() => setScreen("")}><ArrowLeft /></button>
         : <div className="brand">ELVORA<small>VOICE COMMUNITY</small></div>}
       <b className="goldtext">{title}</b>
       <button className="round" onClick={() => setScreen("Notifications")}><Bell size={17} /></button>
@@ -421,235 +643,580 @@ export default function App() {
   const HomePage = () => (
     <main className="page">
       <div className="tabs">
-        {["Mine", "Hot", "Following"].map((t) =>
-          <button key={t} className={listTab === t ? "active" : ""} onClick={() => setListTab(t)}>{t}</button>)}
+        {["Mine", "Hot", "Following"].map((t) => (
+          <button key={t} className={listTab === t ? "active" : ""} onClick={() => setListTab(t)}>
+            {t}
+          </button>
+        ))}
         <button onClick={() => setScreen("Search")}><Search size={18} /></button>
       </div>
-      <div className="banner" onClick={() => setScreen("Wallet")}><Gem size={44} /><span>ELVORA<br/>COMMUNITY</span><Sparkles size={28}/></div>
+
+      <div className="banner" onClick={() => setScreen("Wallet")}>
+        <Gem size={44} />
+        <span>ELVORA<br />COMMUNITY</span>
+        <Sparkles size={28} />
+      </div>
+
       <div className="tilegrid">
-        <button className="tile" onClick={() => setScreen("Rank")}><Trophy/><span>Rank</span></button>
-        <button className="tile" onClick={() => setScreen("Family")}><Users/><span>Family</span></button>
-        <button className="tile" onClick={() => setScreen("CP Space")}><Heart/><span>CP Space</span></button>
+        <button className="tile" onClick={() => setScreen("Rank")}><Trophy /><span>Rank</span></button>
+        <button className="tile" onClick={() => setScreen("Family")}><Users /><span>Family</span></button>
+        <button className="tile" onClick={() => setScreen("CP Space")}><Heart /><span>CP Space</span></button>
       </div>
-      <div className="between" style={{margin:"18px 0 12px"}}>
+
+      <div className="between" style={{ margin: "18px 0 12px" }}>
         <b className="goldtext">ELVORA Voice Rooms</b>
-        <button className="btn2" onClick={() => setScreen("Create Room")}><Plus size={14}/> Create</button>
+        <button className="btn2" onClick={() => setScreen("Create Room")}><Plus size={14} /> Create</button>
       </div>
-      <div className="input row"><Search size={16}/>
-        <input style={{flex:1,minWidth:0,border:0,background:"transparent",color:"white",outline:0}}
-          placeholder="Search rooms..." value={search} onChange={(e)=>setSearch(e.target.value)}/>
+
+      <div className="input row">
+        <Search size={16} />
+        <input
+          style={{ flex: 1, minWidth: 0, border: 0, background: "transparent", color: "white", outline: 0 }}
+          placeholder="Search rooms..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
+
       {filteredRooms.length === 0
-        ? <div className="goldpanel empty"><Headphones size={38} color={GOLD}/><p>No public rooms found. Apna room create karo.</p></div>
-        : <div className="roomgrid">{filteredRooms.map((r)=><article className="roomcard" key={r.id}>
-          <div className="cover">{r.coverURL?<img src={r.coverURL} alt="Room"/>:<Crown size={38}/>}</div>
-          <b style={{display:"block",margin:"8px 3px 3px",fontSize:12}}>{r.name}</b>
-          <div className="sub" style={{margin:"0 3px 8px"}}>ID: {r.roomCode || numericId(r.id)} · {r.capacity || 20} seats</div>
-          <button className="btn" style={{width:"100%",padding:8}} onClick={()=>joinRoom(r)}>Join Room</button>
-        </article>)}</div>}
-      <div className="goldpanel"><b className="goldtext">ELVORA Community</b><p className="sub">Meet people and join voice conversations.</p></div>
+        ? <div className="goldpanel empty">
+            <Headphones size={38} color={GOLD} />
+            <p>No public rooms found. Apna room create karo.</p>
+          </div>
+        : <div className="roomgrid">
+            {filteredRooms.map((r) => (
+              <article className="roomcard" key={r.id}>
+                <div className="cover">
+                  {r.coverURL ? <img src={r.coverURL} alt="Room" /> : <Crown size={38} />}
+                </div>
+                <b style={{ display: "block", margin: "8px 3px 3px", fontSize: 12 }}>{r.name}</b>
+                <div className="sub" style={{ margin: "0 3px 8px" }}>
+                  ID: {r.roomCode || numericId(r.id)} · {r.capacity || 8} seats
+                </div>
+                <button className="btn" style={{ width: "100%", padding: 8 }} onClick={() => joinRoom(r)}>
+                  Join Room
+                </button>
+              </article>
+            ))}
+          </div>
+      }
+
+      <div className="goldpanel">
+        <b className="goldtext">ELVORA Community</b>
+        <p className="sub">Meet people and join voice conversations.</p>
+      </div>
     </main>
   );
 
   const LiveRoom = () => {
     const stageMembers = members.filter((m) => m.seat);
-    return <main className="roompage">
-      <div className="roomhead">
-        <button className="round" onClick={leaveRoom}><ArrowLeft/></button>
-        <span className="goldtext" style={{fontSize:10,fontWeight:900}}>
-          {liveKitRoom ? "● VOICE CONNECTED" : voiceConnecting ? "CONNECTING..." : "● VOICE OFFLINE"}
-        </span>
-        <div className="row">
-          <button className="round" onClick={()=>copyText(activeRoom?.roomCode || activeRoom?.id,"Room ID")}><Share2 size={16}/></button>
-          <button className="round" onClick={toggleSpeaker}>{speakerOn?<Volume2 size={16}/>:<VolumeX size={16}/>}</button>
-          <button className="round" onClick={()=>setSheet("More")}><MoreHorizontal/></button>
+
+    return (
+      <main
+        className="roompage"
+        style={activeRoom?.backgroundURL ? {
+          backgroundImage: `linear-gradient(#160900b8,#160900d9),url("${activeRoom.backgroundURL}")`
+        } : {}}
+      >
+        <div className="roomhead">
+          <button className="round" onClick={leaveRoom}><ArrowLeft /></button>
+
+          <span className="goldtext" style={{ fontSize: 10, fontWeight: 900 }}>
+            {liveKitRoom ? "● VOICE CONNECTED" : voiceConnecting ? "CONNECTING..." : "● VOICE OFFLINE"}
+          </span>
+
+          <div className="row">
+            <button className="round" onClick={() => copyText(activeRoom?.roomCode || activeRoom?.id, "Room ID")}>
+              <Share2 size={16} />
+            </button>
+            <button className="round" onClick={toggleSpeaker}>
+              {speakerOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            </button>
+            <button className="round" onClick={() => setSheet("More")}><MoreHorizontal /></button>
+          </div>
         </div>
-      </div>
-      <div className="roomidentity"><Avatar name={activeRoom?.name} url={activeRoom?.coverURL} size={52}/>
-        <div style={{flex:1,minWidth:0}}><div className="roomname">{activeRoom?.name}</div>
-          <div className="sub">ID: {activeRoom?.roomCode || numericId(activeRoom?.id)}</div></div>
-      </div>
-      <div className="between goldpanel" style={{padding:12}}>
-        <span className="goldtext"><Trophy size={15}/> Stage</span>
-        <span className="sub"><Users size={14}/> {members.length} members · {stageMembers.length}/{activeRoom?.capacity || 20} speakers</span>
-      </div>
-      <div className="welcome">✨ Welcome to {activeRoom?.name}! Respect everyone and enjoy the conversation.</div>
-      <div className="between" style={{margin:"16px 3px 11px"}}>
-        <b className="goldtext">Microphone Stage</b><span className="sub">Speakers only</span>
-      </div>
-      <div className="seats">
-        {Array.from({length:Number(activeRoom?.capacity)||20},(_,i)=>{
-          const m=stageMembers.find((x)=>Number(x.seat)===i+1);
-          return <div className="seat" key={i}><div className="seatcircle">
-            {m?<Avatar name={m.name} url={m.photoURL} size={45}/>:<Mic size={19}/>}
-          </div><small>{m?m.name:`No.${i+1}`}</small></div>;
-        })}
-      </div>
-      <div className="between" style={{margin:"12px 2px"}}>
-        <span className="sub"><Users size={14}/> {members.length} members</span>
-        <button className="btn2" onClick={()=>setSheet("Members")}>Members & Roles</button>
-      </div>
-      {!isSpeaker && <button className="btn" style={{width:"100%"}} onClick={requestToSpeak}>
-        <Mic size={15}/> Request to Speak
-      </button>}
-      {isSpeaker && <div className="goldpanel"><b className="goldtext"><UserCheck size={15}/> You are on stage</b>
-        <p className="sub">Microphone button se apna mic ON/OFF karo.</p></div>}
-      {isModerator && <button className="btn2" style={{width:"100%",marginTop:8}} onClick={()=>setSheet("Requests")}>
-        Speak Requests ({requests.length})
-      </button>}
-      <div className="chatpreview" onClick={()=>setSheet("Chat")}>
-        <b className="goldtext" style={{fontSize:11}}>Room Chat · Tap to open</b>
-        {messages.slice(-3).map((m,i)=><div className="chatline" key={i}><b>{m.senderName}:</b> {m.text}</div>)}
-        {!messages.length && <div className="chatline">Welcome everyone! Say hello.</div>}
-      </div>
-    </main>;
+
+        <div className="roomidentity">
+          <Avatar name={activeRoom?.name} url={activeRoom?.coverURL} size={52} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="roomname">{activeRoom?.name}</div>
+            <div className="sub">ID: {activeRoom?.roomCode || numericId(activeRoom?.id)}</div>
+          </div>
+        </div>
+
+        <div className="between goldpanel" style={{ padding: 12 }}>
+          <span className="goldtext"><Trophy size={15} /> Stage</span>
+          <span className="sub">
+            <Users size={14} /> {members.length} members · {stageMembers.length}/{activeRoom?.capacity || 8} speakers
+          </span>
+        </div>
+
+        <div className="welcome">
+          ✨ Welcome to {activeRoom?.name}! Respect everyone and enjoy the conversation.
+        </div>
+
+        <div className="between" style={{ margin: "16px 3px 11px" }}>
+          <b className="goldtext">Microphone Stage</b>
+          <span className="sub">Speakers only</span>
+        </div>
+
+        <div className="seats">
+          {Array.from({ length: Number(activeRoom?.capacity) || 8 }, (_, i) => {
+            const m = stageMembers.find((x) => Number(x.seat) === i + 1);
+
+            return (
+              <div className="seat" key={i}>
+                <div className="seatcircle">
+                  {m ? <Avatar name={m.name} url={m.photoURL} size={45} /> : <Mic size={19} />}
+                </div>
+                <small>{m ? m.name : `No.${i + 1}`}</small>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="between" style={{ margin: "12px 2px" }}>
+          <span className="sub"><Users size={14} /> {members.length} members</span>
+          <button className="btn2" onClick={() => setSheet("Members")}>Members & Roles</button>
+        </div>
+
+        {!isSpeaker && (
+          <button className="btn" style={{ width: "100%" }} onClick={requestToSpeak}>
+            <Mic size={15} /> Request to Speak
+          </button>
+        )}
+
+        {isSpeaker && (
+          <div className="goldpanel">
+            <b className="goldtext"><UserCheck size={15} /> You are on stage</b>
+            <p className="sub">Microphone button se apna mic ON/OFF karo.</p>
+          </div>
+        )}
+
+        {isModerator && (
+          <button className="btn2" style={{ width: "100%", marginTop: 8 }} onClick={() => setSheet("Requests")}>
+            Speak Requests ({requests.length})
+          </button>
+        )}
+
+        <div className="chatpreview" onClick={() => setSheet("Chat")}>
+          <b className="goldtext" style={{ fontSize: 11 }}>Room Chat · Tap to open</b>
+          {messages.slice(-3).map((m, i) => (
+            <div className="chatline" key={i}><b>{m.senderName}:</b> {m.text}</div>
+          ))}
+          {!messages.length && <div className="chatline">Welcome everyone! Say hello.</div>}
+        </div>
+      </main>
+    );
   };
 
-  const ProfilePage = () => <main className="page">
-    <div className="heading">My Profile</div>
-    <div className="goldpanel" style={{textAlign:"center",padding:22}}>
-      <Avatar name={profile.name} url={profile.photoURL} size={94}/>
-      <h2 className="goldtext">{profile.name}</h2>
-      <div className="row" style={{justifyContent:"center"}}><span className="sub">UID: {uid}</span>
-        <button className="btn2" onClick={()=>copyText(uid,"UID")}><Copy size={13}/></button></div>
-      <p className="sub">{profile.country} · {profile.bio}</p>
-      <button className="btn" onClick={openProfileEdit}><Pencil size={15}/> Edit Profile</button>
-    </div>
-    <div className="statgrid">{["Visitors","Following","Followers"].map(t=><div className="stat" key={t}><b>0</b><span>{t}</span></div>)}</div>
-    <div className="tilegrid">
-      <button className="tile" onClick={()=>setScreen("Wallet")}><Wallet/><span>Wallet</span></button>
-      <button className="tile" onClick={()=>setScreen("Rank")}><Trophy/><span>Rank</span></button>
-      <button className="tile" onClick={()=>setScreen("Settings")}><Settings/><span>Settings</span></button>
-    </div>
-    {["Family","CP Space","Decoration","Safety & Privacy"].map(t=><button className="listitem" key={t} onClick={()=>setScreen(t)}>{t}<ChevronRight color={GOLD}/></button>)}
-  </main>;
+  const ProfilePage = () => (
+    <main className="page">
+      <div className="heading">My Profile</div>
 
-  const CreateRoomPage = () => <main className="page">
-    <div className="heading">Create Room</div>
-    <div className="goldpanel">
-      <label className="sub">ROOM NAME</label>
-      <input className="input" maxLength={50} value={roomName} onChange={e=>setRoomName(e.target.value)} placeholder="ELVORA Global Room"/>
-      <label className="sub">PRIVACY</label>
-      <select className="input" value={privacy} onChange={e=>setPrivacy(e.target.value)}>
-        <option value="public">Public</option><option value="private">Private</option>
-      </select>
-      <label className="sub">STAGE CAPACITY</label>
-      <select className="input" value={capacity} onChange={e=>setCapacity(e.target.value)}>
-        {CAPACITIES.map(n=><option value={n} key={n}>{n} Seats</option>)}
-      </select>
-      <button className="btn" style={{width:"100%"}} onClick={createRoom}><Plus size={16}/> Create Room</button>
-    </div>
-  </main>;
+      <div className="goldpanel" style={{ textAlign: "center", padding: 22 }}>
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <Avatar name={profile.name} url={profile.photoURL} size={94} />
+        </div>
+        <h2 className="goldtext">{profile.name}</h2>
 
-  const WalletPage = () => <main className="page"><div className="heading">Wallet</div>
-    <div className="goldpanel" style={{textAlign:"center",padding:27}}><Gem size={48} color={GOLD}/>
-      <div className="goldtext">Demo Gold Coins</div><div style={{fontSize:39,fontWeight:900,color:"#ffe19a"}}>0</div>
-      <div className="sub">Demo only · No purchases enabled</div></div></main>;
+        <div className="row" style={{ justifyContent: "center" }}>
+          <span className="sub">UID: {uid}</span>
+          <button className="btn2" onClick={() => copyText(uid, "UID")}><Copy size={13} /></button>
+        </div>
 
-  const SettingsPage = () => <main className="page"><div className="heading">Settings</div>
-    <div className="goldpanel row"><Avatar name={profile.name} url={profile.photoURL} size={62}/>
-      <div><b>{profile.name}</b><div className="sub">UID: {uid}</div></div></div>
-    <button className="listitem" onClick={()=>setScreen("Safety & Privacy")}>Safety & Privacy <ShieldCheck/></button>
-    <button className="btn" style={{width:"100%",marginTop:22}} onClick={async()=>{
-      if(liveKitRoom) await disconnectFromLiveKitRoom(liveKitRoom);
-      await signOut(auth);
-    }}><LogOut size={16}/> Log Out</button></main>;
+        <p className="sub">{profile.country} · {profile.bio}</p>
+        <button className="btn" onClick={openProfileEdit}><Pencil size={15} /> Edit Profile</button>
+      </div>
 
-  const Placeholder = ({title}) => <main className="page"><div className="heading">{title}</div>
-    <div className="goldpanel"><p className="sub">Ye feature abhi development mein hai.</p></div></main>;
+      <div className="statgrid">
+        {["Visitors", "Following", "Followers"].map((t) => (
+          <div className="stat" key={t}><b>0</b><span>{t}</span></div>
+        ))}
+      </div>
+
+      <div className="tilegrid">
+        <button className="tile" onClick={() => setScreen("Wallet")}><Wallet /><span>Wallet</span></button>
+        <button className="tile" onClick={() => setScreen("Rank")}><Trophy /><span>Rank</span></button>
+        <button className="tile" onClick={() => setScreen("Settings")}><Settings /><span>Settings</span></button>
+      </div>
+
+      {["Family", "CP Space", "Decoration", "Safety & Privacy"].map((t) => (
+        <button className="listitem" key={t} onClick={() => setScreen(t)}>
+          {t}<ChevronRight color={GOLD} />
+        </button>
+      ))}
+    </main>
+  );
+
+  const CreateRoomPage = () => (
+    <main className="page">
+      <div className="heading">Create Room</div>
+
+      <div className="goldpanel">
+        <label className="sub">ROOM NAME</label>
+        <input
+          className="input"
+          maxLength={50}
+          value={roomName}
+          onChange={(e) => setRoomName(e.target.value)}
+          placeholder="ELVORA Global Room"
+        />
+
+        <label className="sub">PRIVACY</label>
+        <select className="input" value={privacy} onChange={(e) => setPrivacy(e.target.value)}>
+          <option value="public">Public</option>
+          <option value="private">Private</option>
+        </select>
+
+        <label className="sub">STAGE CAPACITY</label>
+        <select className="input" value={capacity} onChange={(e) => setCapacity(e.target.value)}>
+          {CAPACITIES.map((n) => <option value={n} key={n}>{n} Seats</option>)}
+        </select>
+
+        <button className="btn" style={{ width: "100%" }} onClick={createRoom}>
+          <Plus size={16} /> Create Room
+        </button>
+      </div>
+    </main>
+  );
+
+  const WalletPage = () => (
+    <main className="page">
+      <div className="heading">Wallet</div>
+      <div className="goldpanel" style={{ textAlign: "center", padding: 27 }}>
+        <Gem size={48} color={GOLD} />
+        <div className="goldtext">Demo Gold Coins</div>
+        <div style={{ fontSize: 39, fontWeight: 900, color: "#ffe19a" }}>0</div>
+        <div className="sub">Demo only · No purchases enabled</div>
+      </div>
+    </main>
+  );
+
+  const SettingsPage = () => (
+    <main className="page">
+      <div className="heading">Settings</div>
+
+      <div className="goldpanel row">
+        <Avatar name={profile.name} url={profile.photoURL} size={62} />
+        <div><b>{profile.name}</b><div className="sub">UID: {uid}</div></div>
+      </div>
+
+      <button className="listitem" onClick={() => setScreen("Safety & Privacy")}>
+        Safety & Privacy <ShieldCheck />
+      </button>
+
+      <button
+        className="btn"
+        style={{ width: "100%", marginTop: 22 }}
+        onClick={async () => {
+          try {
+            if (liveKitRoom) await disconnectFromLiveKitRoom(liveKitRoom);
+            setLiveKitRoom(null);
+            await signOut(auth);
+          } catch (e) {
+            notify("Logout error: " + e.message);
+          }
+        }}
+      >
+        <LogOut size={16} /> Log Out
+      </button>
+    </main>
+  );
+
+  const Placeholder = ({ title }) => (
+    <main className="page">
+      <div className="heading">{title}</div>
+      <div className="goldpanel"><p className="sub">Ye feature abhi development mein hai.</p></div>
+    </main>
+  );
 
   let content;
-  if(screen==="LiveRoom") content=activeRoom?<LiveRoom/>:<HomePage/>;
-  else if(screen==="Create Room") content=<CreateRoomPage/>;
-  else if(screen==="Profile") content=<ProfilePage/>;
-  else if(screen==="Wallet") content=<WalletPage/>;
-  else if(screen==="Settings") content=<SettingsPage/>;
-  else if(screen) content=<Placeholder title={screen}/>;
-  else if(tab==="Room") content=<HomePage/>;
-  else if(tab==="Moment") content=<Placeholder title="Moment"/>;
-  else if(tab==="Message") content=<Placeholder title="Messages"/>;
-  else content=<ProfilePage/>;
 
-  return <div className="app">
-    <style>{css}</style>
-    {screen!=="LiveRoom" && <Header title={screen||tab} back={!!screen}/>}
-    {notice && <div className="toast" onClick={()=>setNotice("")}>{notice} ×</div>}
-    {content}
-    {screen==="LiveRoom" && activeRoom && <div className="bottom-action">
-      <button onClick={()=>setSheet("Chat")}><MessageCircle/><small>Chat</small></button>
-      <button onClick={()=>setSheet("Emoji")}><Smile/><small>Emoji</small></button>
-      <button onClick={toggleSpeaker}>{speakerOn?<Volume2/>:<VolumeX/>}<small>Sound</small></button>
-      <button className="micmain" onClick={toggleMic} disabled={voiceConnecting||!isSpeaker}>
-        {micOn?<Mic/>:<MicOff/>}<small>{micOn?"Mute":"Mic"}</small></button>
-      <button onClick={()=>setSheet("Members")}><Users/><small>Members</small></button>
-      <button onClick={()=>setSheet("More")}><MoreHorizontal/><small>More</small></button>
-    </div>}
-    {!screen && <nav className="nav">
-      {[[Home,"Room"],[Users,"Moment"],[MessageCircle,"Message"],[UserRound,"Me"]].map(([Icon,label])=>
-        <button key={label} className={tab===label?"active":""} onClick={()=>{setTab(label);setScreen("");}}>
-          <Icon/><span>{label}</span></button>)}
-    </nav>}
-    {sheet && <div className="overlay" onClick={()=>setSheet("")}>
-      <section className="sheet" onClick={e=>e.stopPropagation()}>
-        <div className="sheethead"><span>{sheet}</span><button className="round" onClick={()=>setSheet("")}><X/></button></div>
+  if (screen === "LiveRoom") content = activeRoom ? <LiveRoom /> : <HomePage />;
+  else if (screen === "Create Room") content = <CreateRoomPage />;
+  else if (screen === "Profile") content = <ProfilePage />;
+  else if (screen === "Wallet") content = <WalletPage />;
+  else if (screen === "Settings") content = <SettingsPage />;
+  else if (screen) content = <Placeholder title={screen} />;
+  else if (tab === "Room") content = <HomePage />;
+  else if (tab === "Moment") content = <Placeholder title="Moment" />;
+  else if (tab === "Message") content = <Placeholder title="Messages" />;
+  else content = <ProfilePage />;
 
-        {sheet==="Chat" && <>
-          <div className="chatbox">{messages.map((m,i)=><div className="msg" key={i}>
-            <b className="goldtext">{m.senderName}</b><div>{m.text}</div></div>)}
-            {!messages.length&&<p className="sub">Abhi koi message nahi hai.</p>}
-            <div ref={setMessageEnd}/></div>
-          <div className="footer"><input className="input" maxLength={1000} placeholder="Write a message..."
-            value={chatText} onChange={e=>setChatText(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&sendMessage()}/>
-            <button className="btn" onClick={sendMessage}><Send/></button></div>
-        </>}
+  return (
+    <div className="app">
+      <style>{css}</style>
 
-        {sheet==="Edit Profile" && <>
-          <label className="sub">USERNAME</label>
-          <input className="input" maxLength={30} value={profileEdit.name||""} onChange={e=>setProfileEdit({...profileEdit,name:e.target.value})}/>
-          <label className="sub">BIO</label>
-          <textarea className="input" rows="3" maxLength={160} value={profileEdit.bio||""} onChange={e=>setProfileEdit({...profileEdit,bio:e.target.value})}/>
-          <label className="sub">COUNTRY</label>
-          <select className="input" value={profileEdit.country||"India"} onChange={e=>setProfileEdit({...profileEdit,country:e.target.value})}>
-            <option>India</option><option>Bangladesh</option><option>Nepal</option><option>Other</option></select>
-          <label className="sub">PROFILE PHOTO URL</label>
-          <input className="input" placeholder="Paste image URL" value={profileEdit.photoURL||""} onChange={e=>setProfileEdit({...profileEdit,photoURL:e.target.value})}/>
-          <button className="btn" style={{width:"100%"}} onClick={saveProfile}>Save Profile</button>
-        </>}
+      {screen !== "LiveRoom" && <Header title={screen || tab} back={!!screen} />}
 
-        {sheet==="Members" && <>
-          {members.map(m=><div className="row" style={{padding:9,borderBottom:"1px solid #8a5c30"}} key={m.uid}>
-            <Avatar name={m.name} url={m.photoURL}/>
-            <div style={{flex:1}}><b>{m.name}</b><div className="sub">{m.role==="owner"?"Owner":m.role==="moderator"?"Moderator":m.role==="speaker"?"Speaker":"Audience"}{m.seat?` · Seat ${m.seat}`:""}</div></div>
-            {isOwner && m.uid!==user.uid && <button className="btn2" onClick={()=>makeModerator(m)}>
-              {m.role==="moderator"?"Remove Mod":"Make Mod"}</button>}
-            {isModerator && m.seat && m.uid!==activeRoom?.ownerId && <button className="btn2" onClick={()=>removeFromStage(m)}>Move to audience</button>}
-          </div>)}
-          {!members.length&&<p className="sub">No members found.</p>}
-        </>}
+      {notice && (
+        <div className="toast" onClick={() => setNotice("")}>{notice} ×</div>
+      )}
 
-        {sheet==="Requests" && <>
-          {!isModerator&&<p className="sub">Only moderators can view requests.</p>}
-          {requests.map(r=><div className="row" style={{padding:9,borderBottom:"1px solid #8a5c30"}} key={r.uid}>
-            <Avatar name={r.name} url={r.photoURL}/>
-            <div style={{flex:1}}><b>{r.name}</b><div className="sub">Wants to speak</div></div>
-            <button className="round" onClick={()=>approveRequest(r)}><Check/></button>
-            <button className="round" onClick={()=>rejectRequest(r)}><XCircle/></button>
-          </div>)}
-          {!requests.length&&<p className="sub">No pending requests.</p>}
-        </>}
+      {content}
 
-        {sheet==="Emoji" && <div className="tilegrid">
-          {["😀","😂","😍","🥳","❤️","🔥","👏","🎉","🌹","⭐","🎵","🙌"].map(em=>
-            <button className="tile" key={em} onClick={()=>{setChatText(v=>v+em);setSheet("Chat");}}>{em}</button>)}
-        </div>}
+      {screen === "LiveRoom" && activeRoom && (
+        <div className="bottom-action">
+          <button onClick={() => setSheet("Chat")}><MessageCircle /><small>Chat</small></button>
+          <button onClick={() => setSheet("Emoji")}><Smile /><small>Emoji</small></button>
+          <button onClick={toggleSpeaker}>
+            {speakerOn ? <Volume2 /> : <VolumeX />}
+            <small>Sound</small>
+          </button>
+          <button className="micmain" onClick={toggleMic} disabled={voiceConnecting || !isSpeaker}>
+            {micOn ? <Mic /> : <MicOff />}
+            <small>{micOn ? "Mute" : "Mic"}</small>
+          </button>
+          <button onClick={() => setSheet("Members")}><Users /><small>Members</small></button>
+          <button onClick={() => setSheet("More")}><MoreHorizontal /><small>More</small></button>
+        </div>
+      )}
 
-        {sheet==="More" && <>
-          <button className="listitem" onClick={()=>copyText(activeRoom?.roomCode||activeRoom?.id,"Room ID")}>Copy Room ID <Copy/></button>
-          {isModerator&&<button className="listitem" onClick={()=>setSheet("Requests")}>Manage Speak Requests <Mic/></button>}
-          <button className="listitem" onClick={leaveRoom}>Leave Room <LogOut/></button>
-        </>}
-      </section>
-    </div>}
-  </div>;
+      {!screen && (
+        <nav className="nav">
+          {[[Home, "Room"], [Users, "Moment"], [MessageCircle, "Message"], [UserRound, "Me"]].map(([Icon, label]) => (
+            <button
+              key={label}
+              className={tab === label ? "active" : ""}
+              onClick={() => { setTab(label); setScreen(""); }}
+            >
+              <Icon /><span>{label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {sheet && (
+        <div className="overlay" onClick={() => setSheet("")}>
+          <section className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheethead">
+              <span>{sheet}</span>
+              <button className="round" onClick={() => setSheet("")}><X /></button>
+            </div>
+
+            {sheet === "Chat" && (
+              <>
+                <div className="chatbox">
+                  {messages.map((m, i) => (
+                    <div className="msg" key={i}>
+                      <b className="goldtext">{m.senderName}</b>
+                      <div>{m.text}</div>
+                    </div>
+                  ))}
+                  {!messages.length && <p className="sub">Abhi koi message nahi hai.</p>}
+                  <div ref={setMessageEnd} />
+                </div>
+
+                <div className="footer">
+                  <input
+                    className="input"
+                    maxLength={1000}
+                    placeholder="Write a message..."
+                    value={chatText}
+                    onChange={(e) => setChatText(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                  />
+                  <button className="btn" onClick={sendMessage}><Send /></button>
+                </div>
+              </>
+            )}
+
+            {sheet === "Edit Profile" && (
+              <>
+                <label className="sub">USERNAME</label>
+                <input
+                  className="input"
+                  maxLength={30}
+                  value={profileEdit.name || ""}
+                  onChange={(e) => setProfileEdit({ ...profileEdit, name: e.target.value })}
+                />
+
+                <label className="sub">BIO</label>
+                <textarea
+                  className="input"
+                  rows="3"
+                  maxLength={160}
+                  value={profileEdit.bio || ""}
+                  onChange={(e) => setProfileEdit({ ...profileEdit, bio: e.target.value })}
+                />
+
+                <label className="sub">COUNTRY</label>
+                <select
+                  className="input"
+                  value={profileEdit.country || "India"}
+                  onChange={(e) => setProfileEdit({ ...profileEdit, country: e.target.value })}
+                >
+                  <option>India</option>
+                  <option>Bangladesh</option>
+                  <option>Nepal</option>
+                  <option>Other</option>
+                </select>
+
+                <label className="sub">PROFILE PHOTO URL</label>
+                <input
+                  className="input"
+                  placeholder="Paste direct image URL"
+                  value={profileEdit.photoURL || ""}
+                  onChange={(e) => setProfileEdit({ ...profileEdit, photoURL: e.target.value })}
+                />
+
+                {profileEdit.photoURL && (
+                  <img
+                    className="preview"
+                    src={profileEdit.photoURL}
+                    alt="Profile preview"
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  />
+                )}
+
+                <button className="btn" style={{ width: "100%" }} onClick={saveProfile}>
+                  Save Profile
+                </button>
+              </>
+            )}
+
+            {sheet === "Edit Room" && (
+              <>
+                <label className="sub">ROOM NAME</label>
+                <input
+                  className="input"
+                  maxLength={50}
+                  value={roomEdit.name || ""}
+                  onChange={(e) => setRoomEdit({ ...roomEdit, name: e.target.value })}
+                />
+
+                <label className="sub">ROOM COVER IMAGE URL</label>
+                <input
+                  className="input"
+                  placeholder="Paste direct image URL"
+                  value={roomEdit.coverURL || ""}
+                  onChange={(e) => setRoomEdit({ ...roomEdit, coverURL: e.target.value })}
+                />
+
+                {roomEdit.coverURL && (
+                  <img
+                    className="preview"
+                    src={roomEdit.coverURL}
+                    alt="Room cover preview"
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  />
+                )}
+
+                <label className="sub">ROOM BACKGROUND IMAGE URL</label>
+                <input
+                  className="input"
+                  placeholder="Paste direct image URL"
+                  value={roomEdit.backgroundURL || ""}
+                  onChange={(e) => setRoomEdit({ ...roomEdit, backgroundURL: e.target.value })}
+                />
+
+                {roomEdit.backgroundURL && (
+                  <img
+                    className="preview"
+                    src={roomEdit.backgroundURL}
+                    alt="Room background preview"
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  />
+                )}
+
+                <button className="btn" style={{ width: "100%" }} onClick={saveRoom}>
+                  Save Room
+                </button>
+              </>
+            )}
+
+            {sheet === "Members" && (
+              <>
+                {members.map((m) => (
+                  <div className="row" style={{ padding: 9, borderBottom: "1px solid #8a5c30" }} key={m.uid}>
+                    <Avatar name={m.name} url={m.photoURL} />
+                    <div style={{ flex: 1 }}>
+                      <b>{m.name}</b>
+                      <div className="sub">
+                        {m.role === "owner" ? "Owner" : m.role === "moderator" ? "Moderator" : m.role === "speaker" ? "Speaker" : "Audience"}
+                        {m.seat ? ` · Seat ${m.seat}` : ""}
+                      </div>
+                    </div>
+
+                    {isOwner && m.uid !== user.uid && (
+                      <button className="btn2" onClick={() => makeModerator(m)}>
+                        {m.role === "moderator" ? "Remove Mod" : "Make Mod"}
+                      </button>
+                    )}
+
+                    {isModerator && m.seat && m.uid !== activeRoom?.ownerId && (
+                      <button className="btn2" onClick={() => removeFromStage(m)}>
+                        Move to audience
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {!members.length && <p className="sub">No members found.</p>}
+              </>
+            )}
+
+            {sheet === "Requests" && (
+              <>
+                {!isModerator && <p className="sub">Only moderators can view requests.</p>}
+
+                {requests.map((r) => (
+                  <div className="row" style={{ padding: 9, borderBottom: "1px solid #8a5c30" }} key={r.uid}>
+                    <Avatar name={r.name} url={r.photoURL} />
+                    <div style={{ flex: 1 }}>
+                      <b>{r.name}</b>
+                      <div className="sub">Wants to speak</div>
+                    </div>
+                    <button className="round" onClick={() => approveRequest(r)}><Check /></button>
+                    <button className="round" onClick={() => rejectRequest(r)}><XCircle /></button>
+                  </div>
+                ))}
+
+                {!requests.length && <p className="sub">No pending requests.</p>}
+              </>
+            )}
+
+            {sheet === "Emoji" && (
+              <div className="tilegrid">
+                {["😀", "😂", "😍", "🥳", "❤️", "🔥", "👏", "🎉", "🌹", "⭐", "🎵", "🙌"].map((em) => (
+                  <button
+                    className="tile"
+                    key={em}
+                    onClick={() => { setChatText((v) => v + em); setSheet("Chat"); }}
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {sheet === "More" && (
+              <>
+                <button className="listitem" onClick={() => copyText(activeRoom?.roomCode || activeRoom?.id, "Room ID")}>
+                  Copy Room ID <Copy />
+                </button>
+
+                {isOwner && (
+                  <button className="listitem" onClick={openRoomEdit}>
+                    Edit Room <Pencil />
+                  </button>
+                )}
+
+                {isModerator && (
+                  <button className="listitem" onClick={() => setSheet("Requests")}>
+                    Manage Speak Requests <Mic />
+                  </button>
+                )}
+
+                <button className="listitem" onClick={leaveRoom}>
+                  Leave Room <LogOut />
+                </button>
+              </>
+            )}
+          </section>
+        </div>
+      )}
+    </div>
+  );
 }
