@@ -1,4 +1,4 @@
-Update App.jsximport React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   collection, doc, addDoc, setDoc, onSnapshot,
   query, orderBy, serverTimestamp, runTransaction, limit
@@ -130,7 +130,6 @@ export default function App() {
     photoURL: user?.photoURL || ""
   });
   const [profileEdit, setProfileEdit] = useState({});
-  const [roomEdit, setRoomEdit] = useState({});
   const [roomName, setRoomName] = useState("");
   const [capacity, setCapacity] = useState("20");
   const [privacy, setPrivacy] = useState("public");
@@ -207,10 +206,8 @@ export default function App() {
     if (messageEnd?.scrollIntoView) messageEnd.scrollIntoView({ behavior: "smooth" });
   }, [messages, messageEnd]);
 
-  // Remote audio tracks ko device par play karna.
   useEffect(() => {
     if (!liveKitRoom) return;
-
     const attached = new Set();
 
     const onTrackSubscribed = (track) => {
@@ -240,14 +237,12 @@ export default function App() {
 
   const connectVoice = async (room) => {
     if (liveKitRoom || voiceConnecting) return;
-
     setVoiceConnecting(true);
     try {
       const connection = await connectToLiveKitRoom({
         roomName: `elvora-${room.id}`,
         participantName: profile.name || "ELVORA Member"
       });
-
       setLiveKitRoom(connection);
       setMicOn(false);
       notify("Voice room connected! Mic abhi OFF hai.");
@@ -261,7 +256,6 @@ export default function App() {
 
   const joinRoom = async (room) => {
     if (!user) return notify("Pehle login karo.");
-
     if (room.privacy === "private" && room.ownerId !== user.uid) {
       return notify("Private room mein abhi sirf owner join kar sakta hai.");
     }
@@ -280,7 +274,6 @@ export default function App() {
         const seatRefs = Array.from({ length: cap }, (_, i) =>
           doc(db, "rooms", room.id, "seats", String(i + 1))
         );
-
         const seatSnaps = [];
         for (const ref of seatRefs) seatSnaps.push(await tx.get(ref));
 
@@ -294,19 +287,13 @@ export default function App() {
           seat: freeIndex + 1,
           joinedAt: serverTimestamp()
         });
-
-        tx.set(seatRefs[freeIndex], {
-          uid: user.uid,
-          name: profile.name
-        });
+        tx.set(seatRefs[freeIndex], { uid: user.uid, name: profile.name });
       });
 
       setActiveRoom({ ...room });
       setMessages([]);
       setScreen("LiveRoom");
       setTab("Room");
-
-      // Database membership ke baad voice connect.
       await connectVoice(room);
     } catch (error) {
       notify(error.message || "Room join nahi hua.");
@@ -357,9 +344,7 @@ export default function App() {
     if (!activeRoom || !user) return;
 
     try {
-      if (liveKitRoom) {
-        await disconnectFromLiveKitRoom(liveKitRoom);
-      }
+      if (liveKitRoom) await disconnectFromLiveKitRoom(liveKitRoom);
     } catch (error) {
       console.error("Voice disconnect error:", error);
     }
@@ -371,16 +356,12 @@ export default function App() {
       await runTransaction(db, async (tx) => {
         const memberRef = doc(db, "rooms", activeRoom.id, "members", user.uid);
         const memberSnap = await tx.get(memberRef);
-
         if (memberSnap.exists()) {
           const seatNumber = memberSnap.data().seat;
           const seatRef = doc(db, "rooms", activeRoom.id, "seats", String(seatNumber));
           const seatSnap = await tx.get(seatRef);
-
           tx.delete(memberRef);
-          if (seatSnap.exists() && seatSnap.data().uid === user.uid) {
-            tx.delete(seatRef);
-          }
+          if (seatSnap.exists() && seatSnap.data().uid === user.uid) tx.delete(seatRef);
         }
       });
     } catch (error) {
@@ -394,11 +375,7 @@ export default function App() {
   };
 
   const toggleMic = async () => {
-    if (!liveKitRoom) {
-      notify("Pehle voice room connect karo.");
-      return;
-    }
-
+    if (!liveKitRoom) return notify("Pehle voice room connect karo.");
     try {
       if (micOn) {
         await disableRoomMicrophone(liveKitRoom);
@@ -430,7 +407,6 @@ export default function App() {
   const sendMessage = async () => {
     const text = chatText.trim();
     if (!text || !activeRoom || !user) return;
-
     try {
       await addDoc(collection(db, "rooms", activeRoom.id, "messages"), {
         text,
@@ -446,7 +422,7 @@ export default function App() {
 
   const saveProfile = async () => {
     if (!profileEdit.name?.trim()) return notify("Username likho.");
-
+    if (!user) return notify("Pehle login karo.");
     try {
       const next = {
         name: profileEdit.name.trim(),
@@ -454,7 +430,6 @@ export default function App() {
         country: profileEdit.country || "India",
         photoURL: (profileEdit.photoURL || "").trim()
       };
-
       await setDoc(doc(db, "users", user.uid), {
         displayName: next.name,
         bio: next.bio,
@@ -462,7 +437,6 @@ export default function App() {
         photoURL: next.photoURL,
         updatedAt: serverTimestamp()
       }, { merge: true });
-
       setProfile(next);
       setSheet("");
       notify("Profile save ho gayi.");
@@ -483,7 +457,7 @@ export default function App() {
 
   const copyText = async (text, label) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(String(text || ""));
       notify(label + " copied.");
     } catch {
       notify("Copy nahi ho saka. Text: " + text);
@@ -724,7 +698,6 @@ export default function App() {
   );
 
   let content;
-
   if (screen === "LiveRoom") content = activeRoom ? <LiveRoom /> : <HomePage />;
   else if (screen === "Create Room") content = <CreateRoomPage />;
   else if (screen === "Profile") content = <ProfilePage />;
@@ -740,7 +713,6 @@ export default function App() {
   return (
     <div className="app">
       <style>{css}</style>
-
       {screen !== "LiveRoom" && <Header title={screen || tab} back={!!screen} />}
       {notice && <div className="toast" onClick={() => setNotice("")}>{notice}　×</div>}
       {content}
@@ -818,29 +790,7 @@ export default function App() {
               </select>
               <label className="sub">PROFILE PHOTO URL</label>
               <input className="input" placeholder="Paste image URL" value={profileEdit.photoURL || ""} onChange={(e) => setProfileEdit({ ...profileEdit, photoURL: e.target.value })} />
-              <button className="btn" style={{ width: "100%" }} onClick={async () => {
-                if (!profileEdit.name?.trim()) return notify("Username likho.");
-                try {
-                  const next = {
-                    name: profileEdit.name.trim(),
-                    bio: (profileEdit.bio || "").trim(),
-                    country: profileEdit.country || "India",
-                    photoURL: (profileEdit.photoURL || "").trim()
-                  };
-                  await setDoc(doc(db, "users", user.uid), {
-                    displayName: next.name,
-                    bio: next.bio,
-                    country: next.country,
-                    photoURL: next.photoURL,
-                    updatedAt: serverTimestamp()
-                  }, { merge: true });
-                  setProfile(next);
-                  setSheet("");
-                  notify("Profile save ho gayi.");
-                } catch (error) {
-                  notify("Profile save nahi hui: " + error.message);
-                }
-              }}>Save Profile</button>
+              <button className="btn" style={{ width: "100%" }} onClick={saveProfile}>Save Profile</button>
             </>}
 
             {sheet === "Members" && (
